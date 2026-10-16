@@ -1,0 +1,127 @@
+{
+  "name": "gmsh-preview",
+  "displayName": "Gmsh Realtime 3D Preview",
+  "description": "Real-time interactive 3D preview for Gmsh .geo files with mesh visualization, entity labels, and code jump",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "gmsh",
+    "mesh",
+    "finite element",
+    "fem",
+    "cad",
+    "3d",
+    "preview"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:gmsh",
+    "workspaceContains:**/*.geo",
+    "workspaceContains:**/*.msh"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "gmsh",
+        "aliases": [
+          "Gmsh",
+          "gmsh"
+        ],
+        "extensions": [
+          ".geo"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gmsh",
+        "scopeName": "source.gmsh",
+        "path": "./syntaxes/gmsh.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "gmshPreview.open",
+        "title": "Gmsh: Open 3D Realtime Preview to the Side",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "gmshPreview.remesh",
+        "title": "Gmsh: Re-mesh Model",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "gmshPreview.open",
+          "when": "resourceExtname == .geo || resourceExtname == .msh || editorLangId == gmsh",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "gmshPreview.open",
+          "when": "resourceExtname == .geo || resourceExtname == .msh",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Gmsh Preview",
+      "properties": {
+        "gmsh.executablePath": {
+          "type": "string",
+          "default": "gmsh",
+          "description": "Path to the Gmsh executable (e.g., 'gmsh' or 'C:\\gmsh\\gmsh.exe')"
+        },
+        "gmsh.meshDimension": {
+          "type": "number",
+          "default": 2,
+          "enum": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "enumDescriptions": [
+            "0: Geometry only",
+            "1: 1D Line elements",
+            "2: 2D Surface elements",
+            "3: 3D Volume elements"
+          ],
+          "description": "Default mesh dimension for preview generation"
+        },
+        "gmsh.debounceDelay": {
+          "type": "number",
+          "default": 400,
+          "description": "Debounce delay (ms) before updating the preview when editing code"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "compile": "tsc -p ./ --noEmit",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/three": "^0.170.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.25.0",
+    "three": "^0.174.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {}
+}

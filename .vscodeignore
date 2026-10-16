@@ -1,0 +1,6 @@
+.vscode/**
+src/**
+test-parser.mjs
+build.mjs
+tsconfig.json
+**/*.map
