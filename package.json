@@ -58,6 +58,16 @@
         "command": "gmshPreview.remesh",
         "title": "Gmsh: Re-mesh Model",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "gmshPreview.autoDetect",
+        "title": "Gmsh: Auto-Detect Gmsh Executable",
+        "icon": "$(search)"
+      },
+      {
+        "command": "gmshPreview.browseExecutable",
+        "title": "Gmsh: Browse for Gmsh Executable...",
+        "icon": "$(file)"
       }
     ],
     "menus": {

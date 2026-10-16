@@ -5,6 +5,7 @@ import * as path from 'path';
 import { GmshResult } from './types';
 import { parseMsh } from './mshParser';
 import { parseGeoFallback } from './geoParserFallback';
+import { GmshLocator, GmshDetectResult } from './gmshLocator';
 
 export class GmshRunner {
   private currentProcess: cp.ChildProcess | null = null;
@@ -22,41 +23,10 @@ export class GmshRunner {
   }
 
   /**
-   * Check if gmsh executable is available.
+   * Check if gmsh executable is available using automatic locator.
    */
-  public async checkGmsh(executablePath: string = 'gmsh'): Promise<{ available: boolean; path: string; version?: string }> {
-    return new Promise((resolve) => {
-      const candidates = [
-        executablePath,
-        'gmsh',
-        'gmsh.exe',
-        'C:\\gmsh\\gmsh.exe',
-        'C:\\Program Files\\gmsh\\gmsh.exe',
-        'C:\\Program Files (x86)\\gmsh\\gmsh.exe'
-      ];
-
-      // Remove duplicates
-      const uniqueCandidates = Array.from(new Set(candidates.filter(Boolean)));
-
-      const tryNext = (index: number) => {
-        if (index >= uniqueCandidates.length) {
-          resolve({ available: false, path: executablePath });
-          return;
-        }
-
-        const candidate = uniqueCandidates[index];
-        cp.exec(`"${candidate}" -version`, { timeout: 3000 }, (error, stdout) => {
-          if (!error && stdout) {
-            const version = stdout.trim();
-            resolve({ available: true, path: candidate, version });
-          } else {
-            tryNext(index + 1);
-          }
-        });
-      };
-
-      tryNext(0);
-    });
+  public async checkGmsh(executablePath?: string): Promise<GmshDetectResult> {
+    return GmshLocator.findGmsh(executablePath);
   }
 
   /**
@@ -80,18 +50,18 @@ export class GmshRunner {
       this.currentProcess = null;
     }
 
+    // Resolve actual executable path (auto-detecting if needed)
+    const detectResult = await GmshLocator.findGmsh(executablePath);
+    const resolvedExecPath = detectResult.found ? detectResult.path : executablePath;
+
     const uniqueId = `gmsh_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const tempGeoPath = path.join(this.tempDir, `${uniqueId}.geo`);
     const tempMshPath = path.join(this.tempDir, `${uniqueId}.msh`);
 
     try {
-      // If the original file has includes, resolving relative paths requires running in the original file's directory
       const workingDir = originalFilePath ? path.dirname(originalFilePath) : this.tempDir;
-
       await fs.promises.writeFile(tempGeoPath, geoContent, 'utf-8');
 
-      // Command arguments
-      // e.g.: gmsh temp.geo -format msh -o temp.msh -2
       const args: string[] = [
         tempGeoPath,
         '-format', 'msh',
@@ -102,10 +72,8 @@ export class GmshRunner {
         args.push(`-${meshDimension}`);
       }
 
-      const gmshExec = executablePath || 'gmsh';
-
       const runPromise = new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-        const proc = cp.spawn(gmshExec, args, {
+        const proc = cp.spawn(resolvedExecPath, args, {
           cwd: workingDir,
           windowsHide: true
         });
@@ -132,19 +100,18 @@ export class GmshRunner {
       try {
         execResult = await runPromise;
       } catch (execErr: any) {
-        // Gmsh not found or could not be executed - Fallback to JS parser
         const fallbackData = parseGeoFallback(geoContent);
         return {
           success: false,
           data: fallbackData,
-          error: `Gmsh executable not found or failed to launch (${execErr?.message || 'ENOENT'}). Using fallback preview. Please configure 'gmsh.executablePath'.`,
+          error: `Gmsh failed to launch (${execErr?.message || 'ENOENT'}). Using fallback preview. Run 'Gmsh: Auto-Detect Gmsh Executable' or configure 'gmsh.executablePath'.`,
           durationMs: Date.now() - startTime
         };
       }
 
       const allOutput = `${execResult.stdout}\n${execResult.stderr}`;
 
-      // Check for Gmsh errors in output (e.g., Error : '...', line 12: ...)
+      // Check for Gmsh errors in output
       const errorMatch = allOutput.match(/Error\s*:\s*(?:'[^']+',\s*)?line\s*(\d+)\s*:\s*([^\r\n]+)/i);
       const generalErrorMatch = allOutput.match(/Error\s*:\s*([^\r\n]+)/i);
 
@@ -162,7 +129,6 @@ export class GmshRunner {
         const mshContent = await fs.promises.readFile(tempMshPath, 'utf-8');
         const meshData = parseMsh(mshContent);
 
-        // Cleanup
         this.cleanupFile(tempGeoPath);
         this.cleanupFile(tempMshPath);
 
@@ -175,7 +141,6 @@ export class GmshRunner {
           durationMs: Date.now() - startTime
         };
       } else {
-        // Output MSH was not generated, likely due to syntax error
         const fallbackData = parseGeoFallback(geoContent);
         this.cleanupFile(tempGeoPath);
 
@@ -213,6 +178,10 @@ export class GmshRunner {
     const tempGeoPath = path.join(this.tempDir, `export_${Date.now()}.geo`);
     const workingDir = originalFilePath ? path.dirname(originalFilePath) : this.tempDir;
 
+    // Resolve actual executable path
+    const detectResult = await GmshLocator.findGmsh(executablePath);
+    const resolvedExecPath = detectResult.found ? detectResult.path : executablePath;
+
     try {
       await fs.promises.writeFile(tempGeoPath, geoContent, 'utf-8');
 
@@ -227,7 +196,7 @@ export class GmshRunner {
       }
 
       return new Promise((resolve) => {
-        cp.execFile(executablePath || 'gmsh', args, { cwd: workingDir }, (err, stdout, stderr) => {
+        cp.execFile(resolvedExecPath, args, { cwd: workingDir }, (err, stdout, stderr) => {
           this.cleanupFile(tempGeoPath);
           if (err || !fs.existsSync(outputPath)) {
             resolve({

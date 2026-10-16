@@ -205,6 +205,14 @@ export class GmshPreviewPanel {
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'gmsh');
         break;
+
+      case 'autoDetect':
+        vscode.commands.executeCommand('gmshPreview.autoDetect');
+        break;
+
+      case 'browseExecutable':
+        vscode.commands.executeCommand('gmshPreview.browseExecutable');
+        break;
     }
   }
 
@@ -368,9 +376,12 @@ export class GmshPreviewPanel {
   </div>
 
   <!-- Warning Banner -->
-  <div id="warning-banner" class="warning-banner" title="Click to configure Gmsh path">
-    <span id="warning-text">Gmsh CLI not detected.</span>
-    <span class="badge" style="background: rgba(0,0,0,0.2); color: #0f172a;">Settings ↗</span>
+  <div id="warning-banner" class="warning-banner">
+    <span id="warning-text">Gmsh CLI not detected. Using fast fallback preview.</span>
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <button id="btn-autodetect" class="btn" style="padding: 2px 8px; font-size: 11px; background: rgba(0,0,0,0.2); color: #000;" title="Search system directories for gmsh">🔍 自動検出</button>
+      <button id="btn-browse" class="btn" style="padding: 2px 8px; font-size: 11px; background: rgba(0,0,0,0.2); color: #000;" title="Browse for gmsh.exe">📁 参照...</button>
+    </div>
   </div>
 
   <!-- Bottom Inspector -->

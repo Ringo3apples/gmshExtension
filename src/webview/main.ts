@@ -105,9 +105,19 @@ document.addEventListener('DOMContentLoaded', () => {
     vscode.postMessage({ command: 'export', format: 'msh', dimension: currentMeshDimension });
   });
 
-  // Settings button
+  // Settings & Discovery buttons
   document.getElementById('btn-settings')?.addEventListener('click', () => {
     vscode.postMessage({ command: 'openSettings' });
+  });
+
+  document.getElementById('btn-autodetect')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    vscode.postMessage({ command: 'autoDetect' });
+  });
+
+  document.getElementById('btn-browse')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    vscode.postMessage({ command: 'browseExecutable' });
   });
 
   // Warning banner click -> settings

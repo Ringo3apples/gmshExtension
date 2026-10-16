@@ -76,6 +76,8 @@ export type WebviewMessage =
   | { command: 'export'; format: 'stl' | 'obj' | 'msh'; dimension?: number }
   | { command: 'requestRemesh'; dimension: number }
   | { command: 'openSettings' }
+  | { command: 'autoDetect' }
+  | { command: 'browseExecutable' }
   | { command: 'ready' };
 
 export type ExtensionMessage =

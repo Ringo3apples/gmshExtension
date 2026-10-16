@@ -37,11 +37,14 @@
 - コマンドパレット（`Ctrl+Shift+P`）から **`Gmsh: Open 3D Realtime Preview to the Side`** を実行します。
 - エディタの右側にスプリット画面で3Dリアルタイムプレビューが立ち上がります。
 
-### 2. Gmsh CLI のパス設定（推奨）
-GmshがシステムPATHに通っていない場合（または任意のバージョンのGmshを指定したい場合）：
-1. VS Codeの「設定」（`Ctrl+,`）を開きます。
-2. 検索バーに `gmsh` と入力します。
-3. **`Gmsh: Executable Path`** に `gmsh` または Gmsh実行ファイルのフルパス（例: `C:\gmsh\gmsh.exe` や `/usr/bin/gmsh`）を入力してください。
+### 2. Gmsh CLI の自動検出（設定不要！）
+本拡張機能には**高機能な自動探索エンジン**が組み込まれています：
+- 拡張機能起動時やプレビュー時に、システムPATHだけでなく `C:\Program Files\gmsh-*\gmsh.exe`、`Downloads`、`Desktop`、Conda環境などを自動スキャンします。
+- 自動検出されたパスは、右下の通知の「設定に保存する」ボタンで永続化できます。
+
+手動で再検出したい場合：
+- コマンドパレット（`Ctrl+Shift+P`）から **`Gmsh: Auto-Detect Gmsh Executable`** を実行
+- または **`Gmsh: Browse for Gmsh Executable...`** でエクスプローラーから `gmsh.exe` を直接指定可能です。
 
 ---
 
