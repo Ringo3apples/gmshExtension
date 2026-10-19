@@ -43,8 +43,26 @@
 ## 🚀 Getting Started
 
 ### Installation
-1. Install this extension from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/) (or download the `.vsix`).
-2. Open any `.geo` or `.msh` file. The language mode is automatically set to **Gmsh**.
+
+#### Option A: Install from GitHub Releases (.vsix)
+1. Download `gmsh-preview-0.2.0.vsix` from [GitHub Releases](https://github.com/Ringo3apples/gmshExtension/releases).
+2. In VS Code, open Extensions (`Ctrl+Shift+X` / `Cmd+Shift+X`).
+3. Click the **`...`** (Views and More Actions) menu in the top right, then select **Install from VSIX...** (or simply drag and drop the `.vsix` file into the VS Code window).
+
+#### Option B: Build and Install from Source
+```bash
+git clone https://github.com/Ringo3apples/gmshExtension.git
+cd gmshExtension
+npm install
+npm run build
+npx @vscode/vsce package
+```
+Install the resulting `.vsix` file via `code --install-extension gmsh-preview-0.2.0.vsix`.
+
+---
+
+### Usage
+1. Open any `.geo` or `.msh` file. The language mode is automatically set to **Gmsh**.
 
 ### Opening the 3D Preview
 Choose any of these methods:
@@ -110,14 +128,18 @@ Type the prefix and press `Tab` or `Enter` to expand:
 - **3D プレビュー**: コード編集時にミリ秒単位で再描画。3D 上の点・線・面をクリックするとコードの該当行へ即座にジャンプ。
 - **Gmsh 自動検出**: お使いの PC 内の `gmsh.exe` を自動検出するため、環境変数の事前設定が不要です。
 
+#### インストール方法（日本語）
+1. [GitHub Releases](https://github.com/Ringo3apples/gmshExtension/releases) から最新の `gmsh-preview-0.2.0.vsix` をダウンロードします。
+2. VS Code の拡張機能ビュー（`Ctrl+Shift+X`）を開き、右上の「**…**」メニューから「**VSIX からのインストール...**」を選択してダウンロードしたファイルを選びます（または VS Code ウィンドウへファイルをドラッグ＆ドロップ）。
+
 ---
 
 ## 🛠️ Development & Building
 
 ```bash
 # Clone the repository
-git clone https://github.com/USERNAME/gmsh-preview.git
-cd gmsh-preview
+git clone https://github.com/Ringo3apples/gmshExtension.git
+cd gmshExtension
 
 # Install dependencies
 npm install
