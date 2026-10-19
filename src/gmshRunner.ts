@@ -111,8 +111,10 @@ export class GmshRunner {
 
       const allOutput = `${execResult.stdout}\n${execResult.stderr}`;
 
-      // Check for Gmsh errors in output
-      const errorMatch = allOutput.match(/Error\s*:\s*(?:'[^']+',\s*)?line\s*(\d+)\s*:\s*([^\r\n]+)/i);
+      // Check for Gmsh errors in output (support varied formats like 'file', line N: msg or line N: msg)
+      const errorMatch =
+        allOutput.match(/Error\s*:\s*(?:['"][^'"]+['"],\s*)?line\s*(\d+)\s*:\s*([^\r\n]+)/i) ||
+        allOutput.match(/\bline\s*(\d+)\s*:\s*([^\r\n]+)/i);
       const generalErrorMatch = allOutput.match(/Error\s*:\s*([^\r\n]+)/i);
 
       let parsedError: string | undefined;

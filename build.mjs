@@ -16,6 +16,36 @@ async function build() {
     path.resolve('dist/styles.css')
   );
 
+  const syncToInstalled = () => {
+    const home = process.env.USERPROFILE || process.env.HOME || '';
+    const targetDirs = [
+      path.join(home, '.antigravity-ide', 'extensions', 'local.gmsh-preview-0.2.0', 'dist'),
+      path.join(home, '.vscode', 'extensions', 'local.gmsh-preview-0.2.0', 'dist')
+    ];
+
+    for (const installedExtDist of targetDirs) {
+      if (fs.existsSync(installedExtDist)) {
+        try {
+          if (fs.existsSync('dist/extension.js')) fs.copyFileSync('dist/extension.js', path.join(installedExtDist, 'extension.js'));
+          if (fs.existsSync('dist/preview.bundle.js')) fs.copyFileSync('dist/preview.bundle.js', path.join(installedExtDist, 'preview.bundle.js'));
+          if (fs.existsSync('dist/styles.css')) fs.copyFileSync('dist/styles.css', path.join(installedExtDist, 'styles.css'));
+          console.log(`Synced to installed extension: ${installedExtDist}`);
+        } catch (e) {
+          console.warn('Failed to sync to installed extension:', e);
+        }
+      }
+    }
+  };
+
+  const syncPlugin = {
+    name: 'sync-extension',
+    setup(build) {
+      build.onEnd(() => {
+        syncToInstalled();
+      });
+    }
+  };
+
   // 1. Build Extension Host (Node)
   const extensionCtx = await esbuild.context({
     entryPoints: ['src/extension.ts'],
@@ -26,7 +56,8 @@ async function build() {
     platform: 'node',
     target: 'node18',
     sourcemap: true,
-    minify: !isWatch
+    minify: !isWatch,
+    plugins: [syncPlugin]
   });
 
   // 2. Build Webview UI (Browser with Three.js)
@@ -38,7 +69,8 @@ async function build() {
     platform: 'browser',
     target: 'es2020',
     sourcemap: true,
-    minify: !isWatch
+    minify: !isWatch,
+    plugins: [syncPlugin]
   });
 
   if (isWatch) {
@@ -50,6 +82,7 @@ async function build() {
     await webviewCtx.rebuild();
     await extensionCtx.dispose();
     await webviewCtx.dispose();
+    syncToInstalled();
     console.log('Build completed successfully!');
   }
 }

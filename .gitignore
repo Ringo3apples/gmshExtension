@@ -1,0 +1,21 @@
+# Dependencies & Build artifacts
+node_modules/
+dist/*.map
+*.vsix
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Private experiments, drafts & sandboxes (Will NOT be committed to Git)
+sandbox/
+scratch/
+temp/
+examples/test.geo
+*.dev.*
+*.local.*
+*.tmp

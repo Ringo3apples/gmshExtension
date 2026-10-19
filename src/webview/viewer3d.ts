@@ -29,10 +29,13 @@ export class Viewer3D {
 
   private gridHelper: THREE.GridHelper | null = null;
   private axesHelper: THREE.AxesHelper | null = null;
+  private dirLight1!: THREE.DirectionalLight;
+  private dirLight2!: THREE.DirectionalLight;
 
   // Stored active mesh data
   private currentMeshData: MeshData | null = null;
   private boundingSphere: THREE.Sphere = new THREE.Sphere();
+  private boundingBox: THREE.Box3 = new THREE.Box3();
 
   // Interaction
   private raycaster: THREE.Raycaster;
@@ -45,6 +48,7 @@ export class Viewer3D {
   public showLines: boolean = true;
   public showSurfaces: boolean = true;
   public showWireframe: boolean = true;
+  public showLabels: boolean = true;
   public showAxes: boolean = true;
   public showGrid: boolean = true;
   public isOrtho: boolean = false;
@@ -92,17 +96,19 @@ export class Viewer3D {
     this.controls.rotateSpeed = 0.8;
     this.controls.zoomSpeed = 1.2;
 
-    // 5. Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    // 5. Lights (Simple, neutral reflected light suitable for CAD/FEM models)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     this.scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight1.position.set(10, 20, 15);
-    this.scene.add(dirLight1);
+    this.dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4625);
+    this.dirLight1.position.set(10, 20, 15);
+    this.scene.add(this.dirLight1);
+    this.scene.add(this.dirLight1.target);
 
-    const dirLight2 = new THREE.DirectionalLight(0x93c5fd, 0.4);
-    dirLight2.position.set(-10, -10, -10);
-    this.scene.add(dirLight2);
+    this.dirLight2 = new THREE.DirectionalLight(0xffffff, 0.35);
+    this.dirLight2.position.set(-10, -10, -10);
+    this.scene.add(this.dirLight2);
+    this.scene.add(this.dirLight2.target);
 
     // 6. Groups
     this.pointsGroup = new THREE.Group();
@@ -168,12 +174,16 @@ export class Viewer3D {
     this.perspectiveCamera.aspect = aspect;
     this.perspectiveCamera.updateProjectionMatrix();
 
-    const d = this.boundingSphere.radius || 5;
-    this.orthographicCamera.left = -d * aspect;
-    this.orthographicCamera.right = d * aspect;
-    this.orthographicCamera.top = d;
-    this.orthographicCamera.bottom = -d;
-    this.orthographicCamera.updateProjectionMatrix();
+    if (this.isOrtho) {
+      const halfHeight = (this.orthographicCamera.top - this.orthographicCamera.bottom) / 2;
+      if (halfHeight > 0) {
+        const halfWidth = halfHeight * aspect;
+        const centerX = (this.orthographicCamera.left + this.orthographicCamera.right) / 2;
+        this.orthographicCamera.left = centerX - halfWidth;
+        this.orthographicCamera.right = centerX + halfWidth;
+        this.orthographicCamera.updateProjectionMatrix();
+      }
+    }
 
     this.renderer.setSize(width, height);
   }
@@ -340,8 +350,8 @@ export class Viewer3D {
     // 1. Calculate Bounding Box and Center
     const min = new THREE.Vector3(...data.bbox.min);
     const max = new THREE.Vector3(...data.bbox.max);
-    const box = new THREE.Box3(min, max);
-    box.getBoundingSphere(this.boundingSphere);
+    this.boundingBox.set(min, max);
+    this.boundingBox.getBoundingSphere(this.boundingSphere);
 
     const radius = Math.max(this.boundingSphere.radius, 0.5);
     const center = this.boundingSphere.center;
@@ -351,10 +361,8 @@ export class Viewer3D {
 
     // 3. Render Points as small spheres or custom meshes for high visibility
     const pointGeom = new THREE.SphereGeometry(radius * 0.015, 12, 12);
-    const pointMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8, // Sky blue
-      roughness: 0.3,
-      metalness: 0.2
+    const pointMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8 // Sky blue
     });
 
     data.points.forEach((pt) => {
@@ -388,18 +396,20 @@ export class Viewer3D {
       }
     });
 
-    // 5. Render Surfaces
+    // 5. Render Surfaces (Diffuse reflection surface / Lambertian reflection)
     if (data.surfaceTriangles.length > 0) {
       const geom = new THREE.BufferGeometry();
       geom.setAttribute('position', new THREE.Float32BufferAttribute(data.nodes, 3));
       geom.setIndex(data.surfaceTriangles);
       geom.computeVertexNormals();
 
+      // PBR Material (Roughness: 0.5, Metalness: 0.8)
       const mat = new THREE.MeshStandardMaterial({
-        color: 0x475569, // Slate
+        color: 0x475569, // Slate gray
         roughness: 0.5,
-        metalness: 0.1,
+        metalness: 0.8,
         side: THREE.DoubleSide,
+        flatShading: true,
         polygonOffset: true,
         polygonOffsetFactor: 1,
         polygonOffsetUnits: 1
@@ -419,8 +429,8 @@ export class Viewer3D {
       this.wireframeGroup.add(wireframe);
     }
 
-    // 7. Update Labels
-    this.labelManager.updateLabels(data.points, data.lines, data.nodes, radius);
+    // 7. Update Labels (linked with Points and Lines visibility)
+    this.labelManager.updateLabels(data.points, data.lines, data.nodes, radius, this.showPoints, this.showLines);
 
     // Apply visibility states
     this.pointsGroup.visible = this.showPoints;
@@ -429,25 +439,28 @@ export class Viewer3D {
     this.wireframeGroup.visible = this.showWireframe;
 
     if (isFirstLoad) {
-      this.resetView();
+      this.setView('iso');
     }
   }
 
-  private updateHelpers(center: THREE.Vector3, radius: number) {
+  private updateHelpers(_center: THREE.Vector3, radius: number) {
     const size = Math.max(radius * 2.5, 5);
     const divisions = 20;
 
+    // Grid at origin (0, 0, 0)
     this.gridHelper = new THREE.GridHelper(size, divisions, 0x334155, 0x1e293b);
-    this.gridHelper.position.set(center.x, center.y - radius, center.z);
+    this.gridHelper.position.set(0, 0, 0);
     this.helpersGroup.add(this.gridHelper);
 
+    // Axes at origin (0, 0, 0)
     this.axesHelper = new THREE.AxesHelper(radius * 0.8);
-    this.axesHelper.position.set(center.x - radius, center.y - radius, center.z - radius);
+    this.axesHelper.position.set(0, 0, 0);
     this.helpersGroup.add(this.axesHelper);
 
-    this.helpersGroup.visible = this.showAxes || this.showGrid;
+    // Grid and Axes visibility linked together
+    this.helpersGroup.visible = this.showGrid;
     this.gridHelper.visible = this.showGrid;
-    this.axesHelper.visible = this.showAxes;
+    this.axesHelper.visible = this.showGrid;
   }
 
   public resetView() {
@@ -455,53 +468,157 @@ export class Viewer3D {
     const center = this.boundingSphere.center;
     const radius = Math.max(this.boundingSphere.radius, 0.5);
 
+    // Keep current camera view angle relative to target
+    const currentDir = new THREE.Vector3().subVectors(this.currentCamera.position, this.controls.target);
+    if (currentDir.lengthSq() < 1e-4) {
+      currentDir.set(1, 0.85, 1);
+    }
+    currentDir.normalize();
+
+    // Fit distance based on camera field of view
+    const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
+    const fovRad = (this.perspectiveCamera.fov * Math.PI) / 180;
+    const halfFovV = fovRad / 2;
+    const halfFovH = Math.atan(Math.tan(halfFovV) * aspect);
+    const minHalfFov = Math.min(halfFovV, halfFovH);
+    const dist = (radius / Math.sin(minHalfFov)) * 1.15;
+
     this.controls.target.copy(center);
 
-    const dist = radius * 2.8;
-    this.perspectiveCamera.position.set(center.x + dist, center.y + dist * 0.8, center.z + dist);
-    this.perspectiveCamera.near = Math.max(radius * 0.001, 0.01);
-    this.perspectiveCamera.far = radius * 50;
-    this.perspectiveCamera.updateProjectionMatrix();
+    if (this.isOrtho) {
+      // 1. Position camera along current direction and aim at center
+      this.orthographicCamera.position.copy(center).addScaledVector(currentDir, dist);
+      this.orthographicCamera.lookAt(center);
+      this.orthographicCamera.updateMatrixWorld();
+
+      // 2. Project 3D bounding box corners into camera's local space to find oriented screen extents
+      const invMat = this.orthographicCamera.matrixWorldInverse;
+      const box = this.boundingBox;
+      const corners: THREE.Vector3[] = [
+        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+        new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+      ];
+
+      let maxExtentX = 0;
+      let maxExtentY = 0;
+      for (const corner of corners) {
+        const p = corner.clone().applyMatrix4(invMat);
+        maxExtentX = Math.max(maxExtentX, Math.abs(p.x));
+        maxExtentY = Math.max(maxExtentY, Math.abs(p.y));
+      }
+
+      // Safeguard for 2D/1D geometries viewed edge-on
+      if (maxExtentX < 1e-4) maxExtentX = Math.max(maxExtentY, radius * 0.1, 0.1);
+      if (maxExtentY < 1e-4) maxExtentY = Math.max(maxExtentX, radius * 0.1, 0.1);
+
+      // 15% margin around the bounding box
+      const margin = 1.15;
+      const reqHalfW = maxExtentX * margin;
+      const reqHalfH = maxExtentY * margin;
+
+      let halfW = reqHalfW;
+      let halfH = reqHalfH;
+
+      if (reqHalfW / reqHalfH > aspect) {
+        // Horizontally constrained (e.g. wide geometry or narrow viewport)
+        halfH = reqHalfW / aspect;
+      } else {
+        // Vertically constrained
+        halfW = reqHalfH * aspect;
+      }
+
+      // Reset zoom to 1 so OrbitControls zoom doesn't break Fit
+      this.orthographicCamera.zoom = 1;
+      this.orthographicCamera.left = -halfW;
+      this.orthographicCamera.right = halfW;
+      this.orthographicCamera.top = halfH;
+      this.orthographicCamera.bottom = -halfH;
+      this.orthographicCamera.near = Math.max(0.01, dist - radius * 5);
+      this.orthographicCamera.far = dist + radius * 5;
+      this.orthographicCamera.updateProjectionMatrix();
+    } else {
+      this.perspectiveCamera.position.copy(center).addScaledVector(currentDir, dist);
+      this.perspectiveCamera.near = Math.max(radius * 0.001, 0.01);
+      this.perspectiveCamera.far = Math.max(radius * 100, 1000);
+      this.perspectiveCamera.updateProjectionMatrix();
+    }
 
     this.controls.update();
   }
 
   public setView(view: 'top' | 'front' | 'side' | 'iso') {
+    if (!this.currentMeshData) return;
     const center = this.boundingSphere.center;
-    const dist = Math.max(this.boundingSphere.radius, 0.5) * 2.8;
+    const radius = Math.max(this.boundingSphere.radius, 0.5);
+    const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
+    const fovRad = (this.perspectiveCamera.fov * Math.PI) / 180;
+    const halfFovV = fovRad / 2;
+    const halfFovH = Math.atan(Math.tan(halfFovV) * aspect);
+    const minHalfFov = Math.min(halfFovV, halfFovH);
+    const dist = (radius / Math.sin(minHalfFov)) * 1.15;
 
     this.controls.target.copy(center);
+
+    const dir = new THREE.Vector3();
     if (view === 'top') {
-      this.currentCamera.position.set(center.x, center.y + dist, center.z + 0.0001);
+      dir.set(0, 1, 0.0001).normalize();
     } else if (view === 'front') {
-      this.currentCamera.position.set(center.x, center.y, center.z + dist);
+      dir.set(0, 0, 1);
     } else if (view === 'side') {
-      this.currentCamera.position.set(center.x + dist, center.y, center.z);
+      dir.set(1, 0, 0);
     } else if (view === 'iso') {
-      this.currentCamera.position.set(center.x + dist, center.y + dist * 0.8, center.z + dist);
+      dir.set(1, 0.85, 1).normalize();
     }
-    this.controls.update();
+
+    this.currentCamera.position.copy(center).addScaledVector(dir, dist);
+    this.currentCamera.lookAt(center);
+
+    // Call resetView to fit the oriented geometry properly in both Ortho and Perspective
+    this.resetView();
   }
 
   public toggleProjection() {
     this.isOrtho = !this.isOrtho;
     const aspect = this.container.clientWidth / this.container.clientHeight;
-    const d = this.boundingSphere.radius || 5;
+    const radius = Math.max(this.boundingSphere.radius, 0.5);
 
     if (this.isOrtho) {
-      this.orthographicCamera.left = -d * aspect;
-      this.orthographicCamera.right = d * aspect;
-      this.orthographicCamera.top = d;
-      this.orthographicCamera.bottom = -d;
+      // Perspective -> Orthographic transition: maintain apparent size at target
+      const dist = this.perspectiveCamera.position.distanceTo(this.controls.target);
+      const halfHeight = dist * Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2));
+      const halfWidth = halfHeight * aspect;
+
       this.orthographicCamera.position.copy(this.perspectiveCamera.position);
       this.orthographicCamera.rotation.copy(this.perspectiveCamera.rotation);
+      this.orthographicCamera.zoom = 1;
+      this.orthographicCamera.left = -halfWidth;
+      this.orthographicCamera.right = halfWidth;
+      this.orthographicCamera.top = halfHeight;
+      this.orthographicCamera.bottom = -halfHeight;
+      this.orthographicCamera.near = Math.max(0.01, dist - radius * 5);
+      this.orthographicCamera.far = dist + radius * 5;
       this.orthographicCamera.updateProjectionMatrix();
 
       this.currentCamera = this.orthographicCamera;
       this.controls.object = this.orthographicCamera;
     } else {
-      this.perspectiveCamera.position.copy(this.orthographicCamera.position);
+      // Orthographic -> Perspective transition: maintain apparent size at target
+      const halfHeight = (this.orthographicCamera.top - this.orthographicCamera.bottom) / (2 * this.orthographicCamera.zoom);
+      const targetDist = halfHeight / Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2));
+
+      const dir = new THREE.Vector3().subVectors(this.orthographicCamera.position, this.controls.target).normalize();
+      if (dir.lengthSq() < 1e-4) dir.set(1, 0.85, 1).normalize();
+
+      this.perspectiveCamera.position.copy(this.controls.target).addScaledVector(dir, targetDist);
       this.perspectiveCamera.rotation.copy(this.orthographicCamera.rotation);
+      this.perspectiveCamera.near = Math.max(radius * 0.001, 0.01);
+      this.perspectiveCamera.far = Math.max(radius * 100, 1000);
       this.perspectiveCamera.updateProjectionMatrix();
 
       this.currentCamera = this.perspectiveCamera;
@@ -515,10 +632,12 @@ export class Viewer3D {
       case 'points':
         this.showPoints = enabled;
         this.pointsGroup.visible = enabled;
+        this.labelManager.setPointLabelsVisible(enabled);
         break;
       case 'lines':
         this.showLines = enabled;
         this.linesGroup.visible = enabled;
+        this.labelManager.setLineLabelsVisible(enabled);
         break;
       case 'surfaces':
         this.showSurfaces = enabled;
@@ -529,14 +648,15 @@ export class Viewer3D {
         this.wireframeGroup.visible = enabled;
         break;
       case 'labels':
+        this.showLabels = enabled;
         this.labelManager.setVisible(enabled);
         break;
       case 'grid':
-        this.showGrid = enabled;
-        if (this.gridHelper) this.gridHelper.visible = enabled;
-        break;
       case 'axes':
+        this.showGrid = enabled;
         this.showAxes = enabled;
+        this.helpersGroup.visible = enabled;
+        if (this.gridHelper) this.gridHelper.visible = enabled;
         if (this.axesHelper) this.axesHelper.visible = enabled;
         break;
     }
@@ -557,9 +677,30 @@ export class Viewer3D {
     }
   }
 
+  private updateLights() {
+    // Keep lights aligned with the current camera view for clean, consistent CAD-style illumination
+    const cam = this.currentCamera;
+    const target = this.controls.target;
+
+    const forward = new THREE.Vector3().subVectors(cam.position, target).normalize();
+    if (forward.lengthSq() < 1e-4) forward.set(0, 0, 1);
+    const up = cam.up.clone().normalize();
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    const actualUp = new THREE.Vector3().crossVectors(forward, right).normalize();
+
+    // Key light: slightly upper-right relative to camera view
+    this.dirLight1.position.copy(target).addScaledVector(forward, 20).addScaledVector(right, 8).addScaledVector(actualUp, 12);
+    this.dirLight1.target.position.copy(target);
+
+    // Fill light: slightly lower-left relative to camera view (neutral white)
+    this.dirLight2.position.copy(target).addScaledVector(forward, 20).addScaledVector(right, -8).addScaledVector(actualUp, -6);
+    this.dirLight2.target.position.copy(target);
+  }
+
   private animate = () => {
     requestAnimationFrame(this.animate);
     this.controls.update();
+    this.updateLights();
     this.renderer.render(this.scene, this.currentCamera);
   };
 }

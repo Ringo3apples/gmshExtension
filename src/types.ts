@@ -73,6 +73,7 @@ export interface ExtensionConfig {
 
 export type WebviewMessage =
   | { command: 'selectEntity'; entityType: 'point' | 'line' | 'surface'; tag: number }
+  | { command: 'jumpToLine'; line?: number }
   | { command: 'export'; format: 'stl' | 'obj' | 'msh'; dimension?: number }
   | { command: 'requestRemesh'; dimension: number }
   | { command: 'openSettings' }

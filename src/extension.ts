@@ -2,8 +2,12 @@ import * as vscode from 'vscode';
 import { GmshPreviewPanel } from './previewPanel';
 import { GmshRunner } from './gmshRunner';
 import { GmshLocator } from './gmshLocator';
+import { registerGmshLanguageSupport } from './languageSupport';
 
 export function activate(context: vscode.ExtensionContext) {
+  // Register .geo language autocompletion, snippets, and hover support
+  registerGmshLanguageSupport(context);
+
   const runner = new GmshRunner();
 
   // Check and auto-detect Gmsh on startup

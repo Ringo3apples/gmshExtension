@@ -1,0 +1,238 @@
+{
+  "Point": {
+    "prefix": "Point",
+    "body": [
+      "Point(${1:1}) = {${2:x}, ${3:y}, ${4:z}${5:, lc}};"
+    ],
+    "description": "Gmsh Point definition: Point(tag) = {x, y, z, lc};"
+  },
+  "Line": {
+    "prefix": "Line",
+    "body": [
+      "Line(${1:1}) = {${2:start_point}, ${3:end_point}};"
+    ],
+    "description": "Gmsh Line definition: Line(tag) = {startPoint, endPoint};"
+  },
+  "Circle": {
+    "prefix": "Circle",
+    "body": [
+      "Circle(${1:1}) = {${2:start_point}, ${3:center_point}, ${4:end_point}};"
+    ],
+    "description": "Gmsh Circle arc: Circle(tag) = {startPoint, centerPoint, endPoint};"
+  },
+  "Spline": {
+    "prefix": "Spline",
+    "body": [
+      "Spline(${1:1}) = {${2:point_list}};"
+    ],
+    "description": "Gmsh Spline: Spline(tag) = {p1, p2, ...};"
+  },
+  "BSpline": {
+    "prefix": "BSpline",
+    "body": [
+      "BSpline(${1:1}) = {${2:point_list}};"
+    ],
+    "description": "Gmsh BSpline: BSpline(tag) = {p1, p2, ...};"
+  },
+  "Bezier": {
+    "prefix": "Bezier",
+    "body": [
+      "Bezier(${1:1}) = {${2:point_list}};"
+    ],
+    "description": "Gmsh Bezier curve: Bezier(tag) = {p1, p2, ...};"
+  },
+  "Curve Loop": {
+    "prefix": "Curve Loop",
+    "body": [
+      "Curve Loop(${1:1}) = {${2:curve_list}};"
+    ],
+    "description": "Gmsh Curve Loop: Curve Loop(tag) = {c1, c2, ...};"
+  },
+  "Plane Surface": {
+    "prefix": "Plane Surface",
+    "body": [
+      "Plane Surface(${1:1}) = {${2:curve_loop}};"
+    ],
+    "description": "Gmsh Plane Surface: Plane Surface(tag) = {loop1, ...};"
+  },
+  "Surface": {
+    "prefix": "Surface",
+    "body": [
+      "Surface(${1:1}) = {${2:curve_loop}};"
+    ],
+    "description": "Gmsh Surface (ruled or CAD): Surface(tag) = {loop1, ...};"
+  },
+  "Surface Loop": {
+    "prefix": "Surface Loop",
+    "body": [
+      "Surface Loop(${1:1}) = {${2:surface_list}};"
+    ],
+    "description": "Gmsh Surface Loop: Surface Loop(tag) = {s1, s2, ...};"
+  },
+  "Volume": {
+    "prefix": "Volume",
+    "body": [
+      "Volume(${1:1}) = {${2:surface_loop}};"
+    ],
+    "description": "Gmsh 3D Volume: Volume(tag) = {loop1, ...};"
+  },
+  "Physical Curve": {
+    "prefix": "Physical Curve",
+    "body": [
+      "Physical Curve(\"${1:name}\", ${2:tag}) = {${3:curve_list}};"
+    ],
+    "description": "Gmsh Physical Curve group"
+  },
+  "Physical Surface": {
+    "prefix": "Physical Surface",
+    "body": [
+      "Physical Surface(\"${1:name}\", ${2:tag}) = {${3:surface_list}};"
+    ],
+    "description": "Gmsh Physical Surface group"
+  },
+  "Physical Volume": {
+    "prefix": "Physical Volume",
+    "body": [
+      "Physical Volume(\"${1:name}\", ${2:tag}) = {${3:volume_list}};"
+    ],
+    "description": "Gmsh Physical Volume group"
+  },
+  "Extrude Translation": {
+    "prefix": "Extrude",
+    "body": [
+      "Extrude {${1:dx}, ${2:dy}, ${3:dz}} {",
+      "  ${4:Curve}{${5:1}};",
+      "};"
+    ],
+    "description": "Gmsh Extrude by translation"
+  },
+  "Extrude Rotation": {
+    "prefix": "Extrude-Rotation",
+    "body": [
+      "Extrude { {${1:ax}, ${2:ay}, ${3:az}}, {${4:px}, ${5:py}, ${6:pz}}, ${7:angle} } {",
+      "  ${8:Surface}{${9:1}};",
+      "};"
+    ],
+    "description": "Gmsh Extrude by rotation around axis"
+  },
+  "Translate": {
+    "prefix": "Translate",
+    "body": [
+      "Translate {${1:dx}, ${2:dy}, ${3:dz}} {",
+      "  ${4:Curve}{${5:1}};",
+      "}"
+    ],
+    "description": "Gmsh Translate transformation"
+  },
+  "Rotate": {
+    "prefix": "Rotate",
+    "body": [
+      "Rotate { {${1:ax}, ${2:ay}, ${3:az}}, {${4:px}, ${5:py}, ${6:pz}}, ${7:angle} } {",
+      "  ${8:Curve}{${9:1}};",
+      "}"
+    ],
+    "description": "Gmsh Rotate transformation"
+  },
+  "SetFactory OpenCASCADE": {
+    "prefix": "SetFactory",
+    "body": [
+      "SetFactory(\"OpenCASCADE\");"
+    ],
+    "description": "Set geometry kernel to OpenCASCADE"
+  },
+  "Box (OCC)": {
+    "prefix": "Box",
+    "body": [
+      "Box(${1:1}) = {${2:x}, ${3:y}, ${4:z}, ${5:dx}, ${6:dy}, ${7:dz}};"
+    ],
+    "description": "OpenCASCADE 3D Box primitive"
+  },
+  "Cylinder (OCC)": {
+    "prefix": "Cylinder",
+    "body": [
+      "Cylinder(${1:1}) = {${2:x}, ${3:y}, ${4:z}, ${5:dx}, ${6:dy}, ${7:dz}, ${8:radius}};"
+    ],
+    "description": "OpenCASCADE 3D Cylinder primitive"
+  },
+  "Sphere (OCC)": {
+    "prefix": "Sphere",
+    "body": [
+      "Sphere(${1:1}) = {${2:x}, ${3:y}, ${4:z}, ${5:radius}};"
+    ],
+    "description": "OpenCASCADE 3D Sphere primitive"
+  },
+  "BooleanDifference (OCC)": {
+    "prefix": "BooleanDifference",
+    "body": [
+      "BooleanDifference(${1:1}) = { ${2:Volume}{${3:1}}; Delete; } { ${4:Volume}{${5:2}}; Delete; };"
+    ],
+    "description": "OpenCASCADE Boolean difference"
+  },
+  "BooleanUnion (OCC)": {
+    "prefix": "BooleanUnion",
+    "body": [
+      "BooleanUnion(${1:1}) = { ${2:Volume}{${3:1}}; Delete; } { ${4:Volume}{${5:2}}; Delete; };"
+    ],
+    "description": "OpenCASCADE Boolean union"
+  },
+  "BooleanIntersection (OCC)": {
+    "prefix": "BooleanIntersection",
+    "body": [
+      "BooleanIntersection(${1:1}) = { ${2:Volume}{${3:1}}; Delete; } { ${4:Volume}{${5:2}}; Delete; };"
+    ],
+    "description": "OpenCASCADE Boolean intersection"
+  },
+  "MeshSize": {
+    "prefix": "MeshSize",
+    "body": [
+      "MeshSize {${1:points}} = ${2:size};"
+    ],
+    "description": "Gmsh MeshSize assignment"
+  },
+  "Transfinite Curve": {
+    "prefix": "Transfinite Curve",
+    "body": [
+      "Transfinite Curve {${1:curve_list}} = ${2:n_nodes}${3: Using Progression 1.0};"
+    ],
+    "description": "Structured 1D mesh discretization on curves"
+  },
+  "Transfinite Surface": {
+    "prefix": "Transfinite Surface",
+    "body": [
+      "Transfinite Surface {${1:surface_list}};"
+    ],
+    "description": "Structured 2D mesh discretization on surfaces"
+  },
+  "Recombine Surface": {
+    "prefix": "Recombine Surface",
+    "body": [
+      "Recombine Surface {${1:surface_list}};"
+    ],
+    "description": "Recombine triangles into quadrangles (quad mesh)"
+  },
+  "For Loop": {
+    "prefix": "For",
+    "body": [
+      "For ${1:i} In {${2:1}:${3:10}}",
+      "  $0",
+      "EndFor"
+    ],
+    "description": "Gmsh For loop: For i In {start:end} ... EndFor"
+  },
+  "If Statement": {
+    "prefix": "If",
+    "body": [
+      "If (${1:condition})",
+      "  $0",
+      "EndIf"
+    ],
+    "description": "Gmsh conditional: If (cond) ... EndIf"
+  },
+  "Printf": {
+    "prefix": "Printf",
+    "body": [
+      "Printf(\"${1:%g}\", ${2:variable});"
+    ],
+    "description": "Gmsh formatted output to console: Printf(\"...\", ...);"
+  }
+}

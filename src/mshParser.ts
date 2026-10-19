@@ -160,22 +160,6 @@ function parseMsh4(content: string): MeshData {
               surfaceTriangles.push(n1, n3, n4);
               surfaceTags.push(entityTag);
             }
-          } else if (elementType === 4) {
-            // 4-node tetrahedron (add 4 faces)
-            const n1 = nodeTagToIndex.get(elemParts[1]);
-            const n2 = nodeTagToIndex.get(elemParts[2]);
-            const n3 = nodeTagToIndex.get(elemParts[3]);
-            const n4 = nodeTagToIndex.get(elemParts[4]);
-            if (n1 !== undefined && n2 !== undefined && n3 !== undefined && n4 !== undefined) {
-              surfaceTriangles.push(n1, n2, n3);
-              surfaceTags.push(entityTag);
-              surfaceTriangles.push(n1, n2, n4);
-              surfaceTags.push(entityTag);
-              surfaceTriangles.push(n2, n3, n4);
-              surfaceTags.push(entityTag);
-              surfaceTriangles.push(n3, n1, n4);
-              surfaceTags.push(entityTag);
-            }
           }
         }
       }

@@ -1,10 +1,10 @@
 // 3D CAD Shapes using OpenCASCADE geometry engine
 SetFactory("OpenCASCADE");
 
-fillet_radius = 0.1;
+fillet_radius = 0.2;
 
 // Create a box
-Box(1) = {0, 0, 0, 2, 2, 1.5};
+Box(1) = {0, 0, 0, 2, 2, 1};
 
 // Fillet edges of the box
 f() = Boundary{ Volume{1}; };

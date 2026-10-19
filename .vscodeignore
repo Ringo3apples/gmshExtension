@@ -4,3 +4,15 @@ test-parser.mjs
 build.mjs
 tsconfig.json
 **/*.map
+*.vsix
+.git/**
+.github/**
+
+# Private experiments, drafts & sandboxes (Will NOT be included in VSIX package)
+sandbox/**
+scratch/**
+temp/**
+examples/test.geo
+**/*.dev.*
+**/*.local.*
+**/*.tmp

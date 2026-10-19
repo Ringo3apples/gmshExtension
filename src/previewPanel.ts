@@ -152,13 +152,16 @@ export class GmshPreviewPanel {
     const filePath = this._activeDocument.fileName;
     const config = this.getConfig();
 
+    // 3D volumetric meshing removed: strictly use 2D surface meshing so all models display clean planar surfaces
+    this._currentDimension = 2;
+
     this._panel.webview.postMessage({ command: 'setLoading', loading: true });
 
     const result = await this._gmshRunner.runGmsh(
       content,
       filePath,
       config.executablePath,
-      this._currentDimension
+      2
     );
 
     if (result.data) {
@@ -193,6 +196,10 @@ export class GmshPreviewPanel {
         this._jumpToEntityInEditor(message.entityType, message.tag);
         break;
 
+      case 'jumpToLine':
+        this._jumpToLineInEditor(message.line);
+        break;
+
       case 'requestRemesh':
         this._currentDimension = message.dimension;
         this.updatePreviewImmediate();
@@ -213,6 +220,24 @@ export class GmshPreviewPanel {
       case 'browseExecutable':
         vscode.commands.executeCommand('gmshPreview.browseExecutable');
         break;
+    }
+  }
+
+  private async _jumpToLineInEditor(lineNumber?: number) {
+    if (!this._activeDocument) return;
+
+    const editor = await vscode.window.showTextDocument(this._activeDocument, {
+      viewColumn: vscode.ViewColumn.One,
+      preserveFocus: false
+    });
+
+    if (lineNumber !== undefined && lineNumber > 0) {
+      const targetLine = Math.min(lineNumber - 1, Math.max(0, this._activeDocument.lineCount - 1));
+      const line = this._activeDocument.lineAt(targetLine);
+      const range = line.range;
+
+      editor.selection = new vscode.Selection(targetLine, 0, targetLine, line.text.length);
+      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     }
   }
 
@@ -298,8 +323,8 @@ export class GmshPreviewPanel {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'preview.bundle.js'));
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'styles.css'));
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'preview.bundle.js')).with({ query: `t=${Date.now()}` });
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'styles.css')).with({ query: `t=${Date.now()}` });
 
     // Nonce for CSP
     const nonce = getNonce();
@@ -326,12 +351,6 @@ export class GmshPreviewPanel {
   <div class="toolbar">
     <div class="toolbar-group">
       <span id="filename-badge" class="badge primary">Gmsh Model</span>
-      <div class="segmented-control">
-        <button data-dim="0" title="Geometry only (-0)">0D</button>
-        <button data-dim="1" title="1D Mesh (-1)">1D</button>
-        <button data-dim="2" class="active" title="2D Surface Mesh (-2)">2D</button>
-        <button data-dim="3" title="3D Volume Mesh (-3)">3D</button>
-      </div>
     </div>
 
     <!-- View & Projection Controls -->
@@ -351,8 +370,7 @@ export class GmshPreviewPanel {
       <button id="toggle-surfaces" class="toggle-btn" title="Surfaces (S)">Surfaces</button>
       <button id="toggle-wireframe" class="toggle-btn" title="Mesh Wireframe">Mesh</button>
       <button id="toggle-labels" class="toggle-btn" title="Point & Line ID Labels">Labels</button>
-      <button id="toggle-axes" class="toggle-btn" title="Coordinate Axes">Axes</button>
-      <button id="toggle-grid" class="toggle-btn" title="Grid Floor">Grid</button>
+      <button id="toggle-grid" class="toggle-btn" title="Grid & Origin Axes (0,0,0)">Grid</button>
     </div>
 
     <!-- Export & Settings -->

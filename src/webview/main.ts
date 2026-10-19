@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupToggle('toggle-wireframe', 'wireframe', true);
   setupToggle('toggle-labels', 'labels', true);
   setupToggle('toggle-grid', 'grid', true);
-  setupToggle('toggle-axes', 'axes', true);
 
   // View buttons
   document.getElementById('view-top')?.addEventListener('click', () => viewer.setView('top'));
@@ -80,18 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
     viewer.toggleProjection();
     orthoBtn.classList.toggle('active', viewer.isOrtho);
     orthoBtn.textContent = viewer.isOrtho ? 'Ortho' : 'Persp';
-  });
-
-  // Dimension buttons
-  const dimButtons = document.querySelectorAll<HTMLButtonElement>('.segmented-control button');
-  dimButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      dimButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const dim = parseInt(btn.dataset.dim || '2', 10);
-      currentMeshDimension = dim;
-      vscode.postMessage({ command: 'requestRemesh', dimension: dim });
-    });
   });
 
   // Export buttons
@@ -127,9 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Error banner click -> jump to line
   errorBanner.addEventListener('click', () => {
-    if (lastErrorLine !== undefined) {
-      vscode.postMessage({ command: 'selectEntity', entityType: 'point', tag: lastErrorLine });
-    }
+    vscode.postMessage({ command: 'jumpToLine', line: lastErrorLine });
   });
 
   // Handle messages from Extension

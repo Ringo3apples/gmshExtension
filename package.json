@@ -1,25 +1,35 @@
 {
   "name": "gmsh-preview",
-  "displayName": "Gmsh Realtime 3D Preview",
-  "description": "Real-time interactive 3D preview for Gmsh .geo files with mesh visualization, entity labels, and code jump",
-  "version": "0.1.0",
+  "displayName": "Gmsh (Language Support & 3D Preview)",
+  "description": "Comprehensive Gmsh language support (IntelliSense autocompletion, snippets, hover docs) with real-time interactive 3D mesh preview",
+  "version": "0.2.0",
   "publisher": "local",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ringo3apples/gmsh-preview"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
-    "Visualization",
     "Programming Languages",
-    "Other"
+    "Visualization",
+    "Snippets"
   ],
   "keywords": [
     "gmsh",
-    "mesh",
+    "geo",
+    "msh",
     "finite element",
     "fem",
+    "mesh",
     "cad",
     "3d",
-    "preview"
+    "preview",
+    "intellisense",
+    "snippets"
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
@@ -46,6 +56,12 @@
         "language": "gmsh",
         "scopeName": "source.gmsh",
         "path": "./syntaxes/gmsh.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "gmsh",
+        "path": "./snippets/gmsh.json"
       }
     ],
     "commands": [

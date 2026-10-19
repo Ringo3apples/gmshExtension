@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.geo": "gmsh",
+    "*.msh": "gmsh"
+  }
+}

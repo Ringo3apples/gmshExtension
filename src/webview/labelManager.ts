@@ -3,6 +3,8 @@ import { GeometricPoint, GeometricLine } from '../types';
 
 export class LabelManager {
   private group: THREE.Group;
+  private pointGroup: THREE.Group;
+  private lineGroup: THREE.Group;
   private pointSprites: THREE.Sprite[] = [];
   private lineSprites: THREE.Sprite[] = [];
   private visible: boolean = true;
@@ -10,6 +12,15 @@ export class LabelManager {
   constructor(scene: THREE.Scene) {
     this.group = new THREE.Group();
     this.group.name = 'labelsGroup';
+
+    this.pointGroup = new THREE.Group();
+    this.pointGroup.name = 'pointLabelsGroup';
+    this.group.add(this.pointGroup);
+
+    this.lineGroup = new THREE.Group();
+    this.lineGroup.name = 'lineLabelsGroup';
+    this.group.add(this.lineGroup);
+
     scene.add(this.group);
   }
 
@@ -18,22 +29,44 @@ export class LabelManager {
     this.group.visible = visible;
   }
 
+  public setPointLabelsVisible(visible: boolean) {
+    this.pointGroup.visible = visible;
+  }
+
+  public setLineLabelsVisible(visible: boolean) {
+    this.lineGroup.visible = visible;
+  }
+
   public clear() {
-    while (this.group.children.length > 0) {
-      const child = this.group.children[0];
-      this.group.remove(child);
+    this.clearGroup(this.pointGroup);
+    this.clearGroup(this.lineGroup);
+    this.pointSprites = [];
+    this.lineSprites = [];
+  }
+
+  private clearGroup(g: THREE.Group) {
+    while (g.children.length > 0) {
+      const child = g.children[0];
+      g.remove(child);
       if (child instanceof THREE.Sprite) {
         if (child.material.map) child.material.map.dispose();
         child.material.dispose();
       }
     }
-    this.pointSprites = [];
-    this.lineSprites = [];
   }
 
-  public updateLabels(points: GeometricPoint[], lines: GeometricLine[], nodes: number[], scale: number) {
+  public updateLabels(
+    points: GeometricPoint[],
+    lines: GeometricLine[],
+    nodes: number[],
+    scale: number,
+    showPoints: boolean = true,
+    showLines: boolean = true
+  ) {
     this.clear();
-    if (!this.visible) return;
+    this.group.visible = this.visible;
+    this.setPointLabelsVisible(showPoints);
+    this.setLineLabelsVisible(showLines);
 
     const spriteScale = Math.max(scale * 0.06, 0.2);
 
@@ -43,7 +76,7 @@ export class LabelManager {
       sprite.position.set(pt.x, pt.y, pt.z);
       sprite.scale.set(spriteScale * 1.5, spriteScale * 0.75, 1);
       sprite.userData = { entityType: 'point', tag: pt.tag };
-      this.group.add(sprite);
+      this.pointGroup.add(sprite);
       this.pointSprites.push(sprite);
     });
 
@@ -61,7 +94,7 @@ export class LabelManager {
         sprite.position.set(mx, my, mz);
         sprite.scale.set(spriteScale * 1.5, spriteScale * 0.75, 1);
         sprite.userData = { entityType: 'line', tag: line.tag };
-        this.group.add(sprite);
+        this.lineGroup.add(sprite);
         this.lineSprites.push(sprite);
       }
     });
