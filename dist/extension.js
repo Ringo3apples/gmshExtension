@@ -1,11 +1,1244 @@
-"use strict";var ie=Object.create;var X=Object.defineProperty;var oe=Object.getOwnPropertyDescriptor;var re=Object.getOwnPropertyNames;var ae=Object.getPrototypeOf,ce=Object.prototype.hasOwnProperty;var le=(r,e)=>{for(var t in e)X(r,t,{get:e[t],enumerable:!0})},te=(r,e,t,i)=>{if(e&&typeof e=="object"||typeof e=="function")for(let s of re(e))!ce.call(r,s)&&s!==t&&X(r,s,{get:()=>e[s],enumerable:!(i=oe(e,s))||i.enumerable});return r};var V=(r,e,t)=>(t=r!=null?ie(ae(r)):{},te(e||!r||!r.__esModule?X(t,"default",{value:r,enumerable:!0}):t,r)),ue=r=>te(X({},"__esModule",{value:!0}),r);var ve={};le(ve,{activate:()=>be,deactivate:()=>we});module.exports=ue(ve);var b=V(require("vscode"));var p=V(require("vscode")),O=V(require("path"));var J=V(require("child_process")),W=V(require("fs")),ne=V(require("os")),z=V(require("path"));function se(r){if(r.includes("$MeshFormat")){let e=r.split(/\r?\n/).find(t=>!t.startsWith("$")&&t.trim().length>0);if(e&&e.trim().startsWith("4."))return me(r)}return he(r)}function me(r){let e=r.split(/\r?\n/),t=0,i=0,s=[],n=new Map,o=[],a=[],d=new Map,l=[],f=[],g=1/0,$=1/0,y=1/0,C=-1/0,h=-1/0,w=-1/0,I=0,S=0,v=0;for(;t<e.length;){let E=e[t++].trim();if(E){if(E==="$Entities"){let T=e[t++].trim().split(/\s+/).map(Number);for(I=T[1]||0,S=T[2]||0,v=T[3]||0;t<e.length&&e[t].trim()!=="$EndEntities";)t++;t++}else if(E==="$Nodes"){let T=e[t++].trim().split(/\s+/).map(Number),k=T[0]||0;i=T[1]||0;for(let L=0;L<k&&t<e.length;L++){let x=e[t++].trim().split(/\s+/).map(Number),u=x[0],P=x[1],R=x[3],N=[];for(let D=0;D<R&&t<e.length;D++){let _=parseInt(e[t++].trim(),10);N.push(_)}for(let D=0;D<R&&t<e.length;D++){let _=e[t++].trim().split(/\s+/).map(Number),M=_[0]||0,F=_[1]||0,j=_[2]||0,Q=s.length/3;s.push(M,F,j);let ee=N[D];n.set(ee,Q),o.push(ee),M<g&&(g=M),F<$&&($=F),j<y&&(y=j),M>C&&(C=M),F>h&&(h=F),j>w&&(w=j),u===0&&a.push({tag:P,nodeIndex:Q,x:M,y:F,z:j})}}for(;t<e.length&&e[t].trim()!=="$EndNodes";)t++;t++}else if(E==="$Elements"){let k=e[t++].trim().split(/\s+/).map(Number)[0]||0;for(let L=0;L<k&&t<e.length;L++){let x=e[t++].trim().split(/\s+/).map(Number),u=x[1],P=x[2],R=x[3];for(let N=0;N<R&&t<e.length;N++){let D=e[t++].trim().split(/\s+/).map(Number);if(P===15){let _=D[1],M=n.get(_);M!==void 0&&!a.some(F=>F.tag===u)&&a.push({tag:u,nodeIndex:M,x:s[M*3],y:s[M*3+1],z:s[M*3+2]})}else if(P===1){let _=n.get(D[1]),M=n.get(D[2]);_!==void 0&&M!==void 0&&(d.has(u)||d.set(u,[]),d.get(u).push(_,M))}else if(P===2){let _=n.get(D[1]),M=n.get(D[2]),F=n.get(D[3]);_!==void 0&&M!==void 0&&F!==void 0&&(l.push(_,M,F),f.push(u))}else if(P===3){let _=n.get(D[1]),M=n.get(D[2]),F=n.get(D[3]),j=n.get(D[4]);_!==void 0&&M!==void 0&&F!==void 0&&j!==void 0&&(l.push(_,M,F),f.push(u),l.push(_,F,j),f.push(u))}else if(P===4){let _=n.get(D[1]),M=n.get(D[2]),F=n.get(D[3]),j=n.get(D[4]);_!==void 0&&M!==void 0&&F!==void 0&&j!==void 0&&(l.push(_,M,F),f.push(u),l.push(_,M,j),f.push(u),l.push(M,F,j),f.push(u),l.push(F,_,j),f.push(u))}}}for(;t<e.length&&e[t].trim()!=="$EndElements";)t++;t++}}}let c=[];for(let[E,T]of d.entries())c.push({tag:E,nodeIndices:T});g===1/0&&(g=-1,$=-1,y=-1,C=1,h=1,w=1);let G={min:[g,$,y],max:[C,h,w]},m={numNodes:i||s.length/3,numElements:l.length/3+c.reduce((E,T)=>E+T.nodeIndices.length/2,0),numPoints:a.length,numCurves:c.length||I,numSurfaces:S,numVolumes:v};return{nodes:s,nodeTags:o,points:a,lines:c,surfaceTriangles:l,surfaceTags:f,bbox:G,stats:m}}function he(r){let e=r.split(/\r?\n/),t=0,i=[],s=new Map,n=[],o=[],a=new Map,d=[],l=[],f=1/0,g=1/0,$=1/0,y=-1/0,C=-1/0,h=-1/0;for(;t<e.length;){let v=e[t++].trim();if(v){if(v==="$Nodes"){let c=parseInt(e[t++].trim(),10)||0;for(let G=0;G<c&&t<e.length;G++){let m=e[t++].trim().split(/\s+/).map(Number),E=m[0],T=m[1]||0,k=m[2]||0,L=m[3]||0,x=i.length/3;i.push(T,k,L),s.set(E,x),n.push(E),T<f&&(f=T),k<g&&(g=k),L<$&&($=L),T>y&&(y=T),k>C&&(C=k),L>h&&(h=L)}for(;t<e.length&&e[t].trim()!=="$EndNodes";)t++;t++}else if(v==="$Elements"){let c=parseInt(e[t++].trim(),10)||0;for(let G=0;G<c&&t<e.length;G++){let m=e[t++].trim().split(/\s+/).map(Number),E=m[1],T=m[2]||0,k=T>=2?m[4]:T>=1?m[3]:1,L=3+T;if(E===15){let x=m[L],u=s.get(x);u!==void 0&&o.push({tag:k,nodeIndex:u,x:i[u*3],y:i[u*3+1],z:i[u*3+2]})}else if(E===1){let x=s.get(m[L]),u=s.get(m[L+1]);x!==void 0&&u!==void 0&&(a.has(k)||a.set(k,[]),a.get(k).push(x,u))}else if(E===2){let x=s.get(m[L]),u=s.get(m[L+1]),P=s.get(m[L+2]);x!==void 0&&u!==void 0&&P!==void 0&&(d.push(x,u,P),l.push(k))}else if(E===3){let x=s.get(m[L]),u=s.get(m[L+1]),P=s.get(m[L+2]),R=s.get(m[L+3]);x!==void 0&&u!==void 0&&P!==void 0&&R!==void 0&&(d.push(x,u,P),l.push(k),d.push(x,P,R),l.push(k))}}for(;t<e.length&&e[t].trim()!=="$EndElements";)t++;t++}}}let w=[];for(let[v,c]of a.entries())w.push({tag:v,nodeIndices:c});f===1/0&&(f=-1,g=-1,$=-1,y=1,C=1,h=1);let I={min:[f,g,$],max:[y,C,h]},S={numNodes:i.length/3,numElements:d.length/3+w.reduce((v,c)=>v+c.nodeIndices.length/2,0),numPoints:o.length,numCurves:w.length,numSurfaces:new Set(l).size,numVolumes:0};return{nodes:i,nodeTags:n,points:o,lines:w,surfaceTriangles:d,surfaceTags:l,bbox:I,stats:S}}function Y(r){let e=[],t=[],i=[],s=[],n=[],o=[],a=new Map,d=new Map,f=r.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/.*$/gm,"").split(";").map(c=>c.trim()).filter(Boolean),g=c=>{try{let G=c.trim();for(let[E,T]of d.entries())G=G.replace(new RegExp(`\\b${E}\\b`,"g"),T.toString());let m=Function(`"use strict"; return (${G});`)();return typeof m=="number"&&!isNaN(m)?m:0}catch{return 0}};for(let c of f){let G=c.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);if(G&&!c.includes("(")){let m=G[1],E=g(G[2]);d.set(m,E)}}for(let c of f){let G=c.match(/Point\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);if(G){let x=parseInt(G[1],10),u=G[2].split(",").map(M=>g(M)),P=u[0]||0,R=u[1]||0,N=u[2]||0,D=e.length/3;e.push(P,R,N),t.push(x);let _={tag:x,nodeIndex:D,x:P,y:R,z:N};i.push(_),a.set(x,{x:P,y:R,z:N,nodeIndex:D});continue}let m=c.match(/Line\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);if(m){let x=parseInt(m[1],10),u=m[2].split(",").map(P=>parseInt(P.trim(),10));if(u.length>=2){let P=a.get(u[0]),R=a.get(u[1]);P&&R&&s.push({tag:x,nodeIndices:[P.nodeIndex,R.nodeIndex]})}continue}let E=c.match(/(?:Circle|Spline|BSpline|Bezier)\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);if(E){let x=parseInt(E[1],10),u=E[2].split(",").map(R=>parseInt(R.trim(),10)),P=[];for(let R=0;R<u.length-1;R++){let N=a.get(u[R]),D=a.get(u[R+1]);N&&D&&P.push(N.nodeIndex,D.nodeIndex)}P.length>0&&s.push({tag:x,nodeIndices:P});continue}let T=c.match(/Box\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);if(T){let x=parseInt(T[1],10),u=T[2].split(",").map(F=>g(F)),[P,R,N,D,_,M]=u;de(x,P||0,R||0,N||0,D||1,_||1,M||1,e,t,i,s,n,o);continue}let k=c.match(/Cylinder\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);if(k){let x=parseInt(k[1],10),u=k[2].split(",").map(j=>g(j)),[P,R,N,D,_,M,F]=u;pe(x,P||0,R||0,N||0,D||0,_||0,M||1,F||.5,e,t,i,s,n,o);continue}let L=c.match(/Sphere\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);if(L){let x=parseInt(L[1],10),u=L[2].split(",").map(_=>g(_)),[P,R,N,D]=u;fe(x,P||0,R||0,N||0,D||1,e,t,i,s,n,o);continue}}let $=1/0,y=1/0,C=1/0,h=-1/0,w=-1/0,I=-1/0;for(let c=0;c<e.length;c+=3){let G=e[c],m=e[c+1],E=e[c+2];G<$&&($=G),m<y&&(y=m),E<C&&(C=E),G>h&&(h=G),m>w&&(w=m),E>I&&(I=E)}$===1/0&&($=-1,y=-1,C=-1,h=1,w=1,I=1);let S={min:[$,y,C],max:[h,w,I]},v={numNodes:e.length/3,numElements:n.length/3+s.length,numPoints:i.length,numCurves:s.length,numSurfaces:new Set(o).size,numVolumes:0};return{nodes:e,nodeTags:t,points:i,lines:s,surfaceTriangles:n,surfaceTags:o,bbox:S,stats:v,isFallback:!0}}function de(r,e,t,i,s,n,o,a,d,l,f,g,$){let y=a.length/3;[[e,t,i],[e+s,t,i],[e+s,t+n,i],[e,t+n,i],[e,t,i+o],[e+s,t,i+o],[e+s,t+n,i+o],[e,t+n,i+o]].forEach((S,v)=>{a.push(S[0],S[1],S[2]),d.push(y+v+1),l.push({tag:y+v+1,nodeIndex:y+v,x:S[0],y:S[1],z:S[2]})});let h=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]],w=[];h.forEach(([S,v])=>{w.push(y+S,y+v)}),f.push({tag:r,nodeIndices:w}),[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[2,3,7],[2,7,6],[0,4,7],[0,7,3],[1,2,6],[1,6,5]].forEach(([S,v,c])=>{g.push(y+S,y+v,y+c),$.push(r)})}function pe(r,e,t,i,s,n,o,a,d,l,f,g,$,y){let h=d.length/3;for(let I=0;I<16;I++){let S=I/16*2*Math.PI,v=Math.cos(S)*a,c=Math.sin(S)*a;d.push(e+v,t+c,i),l.push(h+I*2+1),d.push(e+v+s,t+c+n,i+o),l.push(h+I*2+2)}let w=[];for(let I=0;I<16;I++){let S=(I+1)%16,v=h+I*2,c=h+I*2+1,G=h+S*2,m=h+S*2+1;w.push(v,G),w.push(c,m),w.push(v,c),$.push(v,G,m),y.push(r),$.push(v,m,c),y.push(r)}g.push({tag:r,nodeIndices:w})}function fe(r,e,t,i,s,n,o,a,d,l,f){let y=n.length/3;for(let C=0;C<=10;C++){let h=C/10*Math.PI;for(let w=0;w<=16;w++){let I=w/16*2*Math.PI,S=e+s*Math.sin(h)*Math.cos(I),v=t+s*Math.sin(h)*Math.sin(I),c=i+s*Math.cos(h);n.push(S,v,c),o.push(n.length/3)}}for(let C=0;C<10;C++)for(let h=0;h<16;h++){let w=y+C*17+h,I=w+16+1;l.push(w,I,w+1),f.push(r),l.push(I,I+1,w+1),f.push(r)}}var q=V(require("child_process")),Z=V(require("fs")),K=V(require("os")),B=V(require("path")),A=class{static cachedResult=null;static clearCache(){this.cachedResult=null}static async findGmsh(e){if(this.cachedResult&&this.cachedResult.found&&(!e||e===this.cachedResult.path))return this.cachedResult;if(e&&e!=="gmsh"){let s=await this.verifyGmshExecutable(e);if(s.found)return this.cachedResult={...s,source:"config"},this.cachedResult}let t=await this.checkSystemPath();if(t.found)return this.cachedResult={...t,source:"path"},this.cachedResult;let i=this.getCandidateSearchPaths();for(let s of i)if(Z.existsSync(s)){let n=await this.verifyGmshExecutable(s);if(n.found)return this.cachedResult={...n,source:"auto-search"},this.cachedResult}return this.cachedResult={found:!1,path:e||"gmsh",source:"fallback"},this.cachedResult}static async checkSystemPath(){let t=process.platform==="win32"?"where.exe gmsh":"which gmsh";return new Promise(i=>{q.exec(t,{timeout:2e3},async(s,n)=>{if(!s&&n){let o=n.trim().split(/\r?\n/)[0].trim();if(o){let a=await this.verifyGmshExecutable(o);if(a.found){i(a);return}}}i({found:!1,path:"gmsh"})})})}static getCandidateSearchPaths(){let e=[],t=process.platform==="win32",i=process.platform==="darwin";if(t){let s=process.env.USERPROFILE||"",n=process.env.LOCALAPPDATA||"",o=process.env.ProgramFiles||"C:\\Program Files",a=process.env["ProgramFiles(x86)"]||"C:\\Program Files (x86)",d=[o,a,"C:\\",B.join(s,"Downloads"),B.join(s,"Desktop"),s,B.join(n,"Programs"),"C:\\tools"];for(let l of d)if(Z.existsSync(l)){e.push(B.join(l,"gmsh.exe")),e.push(B.join(l,"gmsh","gmsh.exe"));try{let f=Z.readdirSync(l,{withFileTypes:!0});for(let g of f)g.isDirectory()&&g.name.toLowerCase().startsWith("gmsh")&&(e.push(B.join(l,g.name,"gmsh.exe")),e.push(B.join(l,g.name,"bin","gmsh.exe")))}catch{}}s&&(e.push(B.join(s,"anaconda3","Scripts","gmsh.exe")),e.push(B.join(s,"miniconda3","Scripts","gmsh.exe")),e.push(B.join(s,"anaconda3","Library","bin","gmsh.exe")),e.push(B.join(s,"miniconda3","Library","bin","gmsh.exe")),e.push(B.join(s,"scoop","shims","gmsh.exe")))}else if(i){e.push("/Applications/Gmsh.app/Contents/MacOS/gmsh");let s=K.homedir();e.push(B.join(s,"Applications","Gmsh.app","Contents","MacOS","gmsh")),e.push("/usr/local/bin/gmsh"),e.push("/opt/homebrew/bin/gmsh"),e.push(B.join(s,".local","bin","gmsh"))}else e.push("/usr/bin/gmsh"),e.push("/usr/local/bin/gmsh"),e.push("/opt/gmsh/bin/gmsh"),e.push(B.join(K.homedir(),".local","bin","gmsh"));return Array.from(new Set(e))}static async verifyGmshExecutable(e){return new Promise(t=>{if(!Z.existsSync(e)){t({found:!1,path:e});return}try{let i=q.spawn(e,["-info"],{windowsHide:!0,timeout:4e3}),s="";i.stdout.on("data",n=>{s+=n.toString()}),i.on("close",n=>{if(n===0&&(s.includes("Gmsh")||s.includes("Version"))){let o=s.match(/Version\s*:\s*([^\r\n]+)/i),a=o?o[1].trim():"Gmsh";t({found:!0,path:e,version:a})}else t({found:!1,path:e})}),i.on("error",()=>{t({found:!1,path:e})})}catch{t({found:!1,path:e})}})}};var H=class{currentProcess=null;tempDir;constructor(){if(this.tempDir=z.join(ne.tmpdir(),"vscode-gmsh-preview"),!W.existsSync(this.tempDir))try{W.mkdirSync(this.tempDir,{recursive:!0})}catch(e){console.error("Failed to create temp directory for gmsh:",e)}}async checkGmsh(e){return A.findGmsh(e)}async runGmsh(e,t,i="gmsh",s=2){let n=Date.now();if(this.currentProcess){try{this.currentProcess.kill()}catch{}this.currentProcess=null}let o=await A.findGmsh(i),a=o.found?o.path:i,d=`gmsh_${Date.now()}_${Math.floor(Math.random()*1e3)}`,l=z.join(this.tempDir,`${d}.geo`),f=z.join(this.tempDir,`${d}.msh`);try{let g=t?z.dirname(t):this.tempDir;await W.promises.writeFile(l,e,"utf-8");let $=[l,"-format","msh","-o",f];s>=0&&s<=3&&$.push(`-${s}`);let y=new Promise((c,G)=>{let m=J.spawn(a,$,{cwd:g,windowsHide:!0});this.currentProcess=m;let E="",T="";m.stdout.on("data",k=>{E+=k.toString()}),m.stderr.on("data",k=>{T+=k.toString()}),m.on("close",k=>{this.currentProcess=null,c({code:k,stdout:E,stderr:T})}),m.on("error",k=>{this.currentProcess=null,G(k)})}),C;try{C=await y}catch(c){return{success:!1,data:Y(e),error:`Gmsh failed to launch (${c?.message||"ENOENT"}). Using fallback preview. Run 'Gmsh: Auto-Detect Gmsh Executable' or configure 'gmsh.executablePath'.`,durationMs:Date.now()-n}}let h=`${C.stdout}
-${C.stderr}`,w=h.match(/Error\s*:\s*(?:'[^']+',\s*)?line\s*(\d+)\s*:\s*([^\r\n]+)/i),I=h.match(/Error\s*:\s*([^\r\n]+)/i),S,v;if(w?(v=parseInt(w[1],10),S=`Line ${v}: ${w[2].trim()}`):I&&(S=I[1].trim()),W.existsSync(f)){let c=await W.promises.readFile(f,"utf-8"),G=se(c);return this.cleanupFile(l),this.cleanupFile(f),{success:!S,data:G,error:S,errorLine:v,rawOutput:h,durationMs:Date.now()-n}}else{let c=Y(e);return this.cleanupFile(l),{success:!1,data:c,error:S||"Gmsh failed to generate mesh. Showing fallback preview.",errorLine:v,rawOutput:h,durationMs:Date.now()-n}}}catch(g){return{success:!1,data:Y(e),error:`Unexpected error: ${g?.message||g}`,durationMs:Date.now()-n}}}async exportFile(e,t,i,s,n="gmsh",o=2){let a=z.join(this.tempDir,`export_${Date.now()}.geo`),d=t?z.dirname(t):this.tempDir,l=await A.findGmsh(n),f=l.found?l.path:n;try{await W.promises.writeFile(a,e,"utf-8");let g=[a,"-format",s,"-o",i];return o>=0&&o<=3&&g.push(`-${o}`),new Promise($=>{J.execFile(f,g,{cwd:d},(y,C,h)=>{this.cleanupFile(a),y||!W.existsSync(i)?$({success:!1,error:h||C||y?.message||"Export failed"}):$({success:!0})})})}catch(g){return{success:!1,error:g?.message||"Export failed"}}}cleanupFile(e){W.unlink(e,()=>{})}};var U=class r{static currentPanel;static viewType="gmshPreview";_panel;_extensionUri;_gmshRunner;_disposables=[];_activeDocument=null;_debounceTimer=null;_currentDimension=2;_isReady=!1;static createOrShow(e,t){let i=p.ViewColumn.Beside;if(r.currentPanel)return r.currentPanel._panel.reveal(i),t&&r.currentPanel.setDocument(t),r.currentPanel;let s=p.window.createWebviewPanel(r.viewType,"Gmsh 3D Preview",i,{enableScripts:!0,retainContextWhenHidden:!0,localResourceRoots:[p.Uri.joinPath(e,"dist"),p.Uri.joinPath(e,"media")]});return r.currentPanel=new r(s,e,t),r.currentPanel}constructor(e,t,i){this._panel=e,this._extensionUri=t,this._gmshRunner=new H;let s=this.getConfig();this._currentDimension=s.meshDimension,this._panel.webview.html=this._getHtmlForWebview(this._panel.webview),this._panel.onDidDispose(()=>this.dispose(),null,this._disposables),this._panel.webview.onDidReceiveMessage(n=>this._handleMessage(n),null,this._disposables),p.workspace.onDidChangeTextDocument(n=>{this._activeDocument&&n.document.uri.toString()===this._activeDocument.uri.toString()&&this.triggerUpdate()},null,this._disposables),p.window.onDidChangeActiveTextEditor(n=>{n&&this.isGmshFile(n.document)&&this.setDocument(n.document)},null,this._disposables),i?this.setDocument(i):p.window.activeTextEditor&&this.isGmshFile(p.window.activeTextEditor.document)&&this.setDocument(p.window.activeTextEditor.document)}isGmshFile(e){let t=O.extname(e.fileName).toLowerCase();return t===".geo"||t===".msh"||e.languageId==="gmsh"||e.languageId==="geo"}setDocument(e){this._activeDocument=e,this._panel.title=`Preview: ${O.basename(e.fileName)}`,this._isReady&&this.updatePreviewImmediate()}getConfig(){let e=p.workspace.getConfiguration("gmsh");return{executablePath:e.get("executablePath","gmsh"),meshDimension:e.get("meshDimension",2),debounceDelay:e.get("debounceDelay",400),pointSize:e.get("pointSize",1),pointColor:e.get("pointColor","#38bdf8"),lineColor:e.get("lineColor","#f59e0b"),surfaceColor:e.get("surfaceColor","#475569"),meshWireframeColor:e.get("meshWireframeColor","#94a3b8"),backgroundColor:e.get("backgroundColor","#111827"),showLabels:e.get("showLabels",!0),showAxes:e.get("showAxes",!0),showGrid:e.get("showGrid",!0),showPoints:e.get("showPoints",!0),showLines:e.get("showLines",!0),showSurfaces:e.get("showSurfaces",!0),showMeshWireframe:e.get("showMeshWireframe",!0)}}triggerUpdate(){this._debounceTimer&&clearTimeout(this._debounceTimer);let e=this.getConfig().debounceDelay;this._debounceTimer=setTimeout(()=>{this.updatePreviewImmediate()},e)}async updatePreviewImmediate(){if(!this._activeDocument)return;let e=this._activeDocument.getText(),t=this._activeDocument.fileName,i=this.getConfig();this._panel.webview.postMessage({command:"setLoading",loading:!0});let s=await this._gmshRunner.runGmsh(e,t,i.executablePath,this._currentDimension);s.data&&this._panel.webview.postMessage({command:"updateMesh",data:s.data,sourceFile:O.basename(t)}),s.error?this._panel.webview.postMessage({command:"showError",message:s.error,line:s.errorLine}):this._panel.webview.postMessage({command:"clearError"})}async _handleMessage(e){switch(e.command){case"ready":this._isReady=!0,this._activeDocument&&this.updatePreviewImmediate();break;case"selectEntity":this._jumpToEntityInEditor(e.entityType,e.tag);break;case"requestRemesh":this._currentDimension=e.dimension,this.updatePreviewImmediate();break;case"export":this._handleExport(e.format,e.dimension??this._currentDimension);break;case"openSettings":p.commands.executeCommand("workbench.action.openSettings","gmsh");break;case"autoDetect":p.commands.executeCommand("gmshPreview.autoDetect");break;case"browseExecutable":p.commands.executeCommand("gmshPreview.browseExecutable");break}}async _jumpToEntityInEditor(e,t){if(!this._activeDocument)return;let i=await p.window.showTextDocument(this._activeDocument,{viewColumn:p.ViewColumn.One,preserveFocus:!1}),n=this._activeDocument.getText().split(/\r?\n/),o;e==="point"?o=new RegExp(`\\bPoint\\s*\\(\\s*${t}\\s*\\)`,"i"):e==="line"?o=new RegExp(`\\b(?:Line|Circle|Spline|BSpline)\\s*\\(\\s*${t}\\s*\\)`,"i"):o=new RegExp(`\\b(?:Plane\\s+Surface|Surface|Box|Cylinder|Sphere)\\s*\\(\\s*${t}\\s*\\)`,"i");let a=-1,d=0;for(let l=0;l<n.length;l++){let f=n[l].match(o);if(f&&f.index!==void 0){a=l,d=f.index;break}}if(a!==-1){let l=new p.Position(a,d);i.selection=new p.Selection(l,new p.Position(a,n[a].length)),i.revealRange(i.selection,p.TextEditorRevealType.InCenter)}else p.window.showInformationMessage(`Entity ${e.toUpperCase()}(${t}) was generated automatically or not found by exact tag.`)}async _handleExport(e,t){if(!this._activeDocument)return;let i=O.basename(this._activeDocument.fileName,O.extname(this._activeDocument.fileName))+`.${e}`,s=await p.window.showSaveDialog({defaultUri:p.Uri.file(O.join(O.dirname(this._activeDocument.fileName),i)),filters:{[e.toUpperCase()]:[e]}});s&&p.window.withProgress({location:p.ProgressLocation.Notification,title:`Exporting to ${e.toUpperCase()}...`,cancellable:!1},async()=>{let n=this.getConfig(),o=await this._gmshRunner.exportFile(this._activeDocument.getText(),this._activeDocument.fileName,s.fsPath,e,n.executablePath,t);o.success?p.window.showInformationMessage(`Successfully exported to ${O.basename(s.fsPath)}`):p.window.showErrorMessage(`Export failed: ${o.error}`)})}_getHtmlForWebview(e){let t=e.asWebviewUri(p.Uri.joinPath(this._extensionUri,"dist","preview.bundle.js")),i=e.asWebviewUri(p.Uri.joinPath(this._extensionUri,"dist","styles.css")),s=ge();return`<!DOCTYPE html>
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/extension.ts
+var extension_exports = {};
+__export(extension_exports, {
+  activate: () => activate,
+  deactivate: () => deactivate
+});
+module.exports = __toCommonJS(extension_exports);
+var vscode2 = __toESM(require("vscode"));
+
+// src/previewPanel.ts
+var vscode = __toESM(require("vscode"));
+var path3 = __toESM(require("path"));
+
+// src/gmshRunner.ts
+var cp2 = __toESM(require("child_process"));
+var fs2 = __toESM(require("fs"));
+var os2 = __toESM(require("os"));
+var path2 = __toESM(require("path"));
+
+// src/mshParser.ts
+function parseMsh(content) {
+  if (content.includes("$MeshFormat")) {
+    const formatLine = content.split(/\r?\n/).find((l) => !l.startsWith("$") && l.trim().length > 0);
+    if (formatLine && formatLine.trim().startsWith("4.")) {
+      return parseMsh4(content);
+    }
+  }
+  return parseMsh2(content);
+}
+function parseMsh4(content) {
+  const lines = content.split(/\r?\n/);
+  let lineIdx = 0;
+  let totalNodesCount = 0;
+  const nodes = [];
+  const nodeTagToIndex = /* @__PURE__ */ new Map();
+  const nodeTags = [];
+  const points = [];
+  const lineMap = /* @__PURE__ */ new Map();
+  const surfaceTriangles = [];
+  const surfaceTags = [];
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  let numCurves = 0;
+  let numSurfaces = 0;
+  let numVolumes = 0;
+  while (lineIdx < lines.length) {
+    const rawLine = lines[lineIdx++].trim();
+    if (!rawLine) continue;
+    if (rawLine === "$Entities") {
+      const header = lines[lineIdx++].trim().split(/\s+/).map(Number);
+      numCurves = header[1] || 0;
+      numSurfaces = header[2] || 0;
+      numVolumes = header[3] || 0;
+      while (lineIdx < lines.length && lines[lineIdx].trim() !== "$EndEntities") {
+        lineIdx++;
+      }
+      lineIdx++;
+    } else if (rawLine === "$Nodes") {
+      const header = lines[lineIdx++].trim().split(/\s+/).map(Number);
+      const numEntityBlocks = header[0] || 0;
+      totalNodesCount = header[1] || 0;
+      for (let b = 0; b < numEntityBlocks && lineIdx < lines.length; b++) {
+        const blockHeader = lines[lineIdx++].trim().split(/\s+/).map(Number);
+        const entityDim = blockHeader[0];
+        const entityTag = blockHeader[1];
+        const numNodesInBlock = blockHeader[3];
+        const blockNodeTags = [];
+        for (let n = 0; n < numNodesInBlock && lineIdx < lines.length; n++) {
+          const tag = parseInt(lines[lineIdx++].trim(), 10);
+          blockNodeTags.push(tag);
+        }
+        for (let n = 0; n < numNodesInBlock && lineIdx < lines.length; n++) {
+          const coords = lines[lineIdx++].trim().split(/\s+/).map(Number);
+          const x = coords[0] || 0;
+          const y = coords[1] || 0;
+          const z = coords[2] || 0;
+          const globalNodeIndex = nodes.length / 3;
+          nodes.push(x, y, z);
+          const tag = blockNodeTags[n];
+          nodeTagToIndex.set(tag, globalNodeIndex);
+          nodeTags.push(tag);
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (z < minZ) minZ = z;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+          if (z > maxZ) maxZ = z;
+          if (entityDim === 0) {
+            points.push({
+              tag: entityTag,
+              nodeIndex: globalNodeIndex,
+              x,
+              y,
+              z
+            });
+          }
+        }
+      }
+      while (lineIdx < lines.length && lines[lineIdx].trim() !== "$EndNodes") {
+        lineIdx++;
+      }
+      lineIdx++;
+    } else if (rawLine === "$Elements") {
+      const header = lines[lineIdx++].trim().split(/\s+/).map(Number);
+      const numEntityBlocks = header[0] || 0;
+      for (let b = 0; b < numEntityBlocks && lineIdx < lines.length; b++) {
+        const blockHeader = lines[lineIdx++].trim().split(/\s+/).map(Number);
+        const entityTag = blockHeader[1];
+        const elementType = blockHeader[2];
+        const numElementsInBlock = blockHeader[3];
+        for (let e = 0; e < numElementsInBlock && lineIdx < lines.length; e++) {
+          const elemParts = lines[lineIdx++].trim().split(/\s+/).map(Number);
+          if (elementType === 15) {
+            const nTag = elemParts[1];
+            const idx = nodeTagToIndex.get(nTag);
+            if (idx !== void 0 && !points.some((p) => p.tag === entityTag)) {
+              points.push({
+                tag: entityTag,
+                nodeIndex: idx,
+                x: nodes[idx * 3],
+                y: nodes[idx * 3 + 1],
+                z: nodes[idx * 3 + 2]
+              });
+            }
+          } else if (elementType === 1) {
+            const n1 = nodeTagToIndex.get(elemParts[1]);
+            const n2 = nodeTagToIndex.get(elemParts[2]);
+            if (n1 !== void 0 && n2 !== void 0) {
+              if (!lineMap.has(entityTag)) lineMap.set(entityTag, []);
+              lineMap.get(entityTag).push(n1, n2);
+            }
+          } else if (elementType === 2) {
+            const n1 = nodeTagToIndex.get(elemParts[1]);
+            const n2 = nodeTagToIndex.get(elemParts[2]);
+            const n3 = nodeTagToIndex.get(elemParts[3]);
+            if (n1 !== void 0 && n2 !== void 0 && n3 !== void 0) {
+              surfaceTriangles.push(n1, n2, n3);
+              surfaceTags.push(entityTag);
+            }
+          } else if (elementType === 3) {
+            const n1 = nodeTagToIndex.get(elemParts[1]);
+            const n2 = nodeTagToIndex.get(elemParts[2]);
+            const n3 = nodeTagToIndex.get(elemParts[3]);
+            const n4 = nodeTagToIndex.get(elemParts[4]);
+            if (n1 !== void 0 && n2 !== void 0 && n3 !== void 0 && n4 !== void 0) {
+              surfaceTriangles.push(n1, n2, n3);
+              surfaceTags.push(entityTag);
+              surfaceTriangles.push(n1, n3, n4);
+              surfaceTags.push(entityTag);
+            }
+          } else if (elementType === 4) {
+            const n1 = nodeTagToIndex.get(elemParts[1]);
+            const n2 = nodeTagToIndex.get(elemParts[2]);
+            const n3 = nodeTagToIndex.get(elemParts[3]);
+            const n4 = nodeTagToIndex.get(elemParts[4]);
+            if (n1 !== void 0 && n2 !== void 0 && n3 !== void 0 && n4 !== void 0) {
+              surfaceTriangles.push(n1, n2, n3);
+              surfaceTags.push(entityTag);
+              surfaceTriangles.push(n1, n2, n4);
+              surfaceTags.push(entityTag);
+              surfaceTriangles.push(n2, n3, n4);
+              surfaceTags.push(entityTag);
+              surfaceTriangles.push(n3, n1, n4);
+              surfaceTags.push(entityTag);
+            }
+          }
+        }
+      }
+      while (lineIdx < lines.length && lines[lineIdx].trim() !== "$EndElements") {
+        lineIdx++;
+      }
+      lineIdx++;
+    }
+  }
+  const linesList = [];
+  for (const [tag, nodeIndices] of lineMap.entries()) {
+    linesList.push({ tag, nodeIndices });
+  }
+  if (minX === Infinity) {
+    minX = -1;
+    minY = -1;
+    minZ = -1;
+    maxX = 1;
+    maxY = 1;
+    maxZ = 1;
+  }
+  const bbox = {
+    min: [minX, minY, minZ],
+    max: [maxX, maxY, maxZ]
+  };
+  const stats = {
+    numNodes: totalNodesCount || nodes.length / 3,
+    numElements: surfaceTriangles.length / 3 + linesList.reduce((acc, l) => acc + l.nodeIndices.length / 2, 0),
+    numPoints: points.length,
+    numCurves: linesList.length || numCurves,
+    numSurfaces,
+    numVolumes
+  };
+  return {
+    nodes,
+    nodeTags,
+    points,
+    lines: linesList,
+    surfaceTriangles,
+    surfaceTags,
+    bbox,
+    stats
+  };
+}
+function parseMsh2(content) {
+  const lines = content.split(/\r?\n/);
+  let lineIdx = 0;
+  const nodes = [];
+  const nodeTagToIndex = /* @__PURE__ */ new Map();
+  const nodeTags = [];
+  const points = [];
+  const lineMap = /* @__PURE__ */ new Map();
+  const surfaceTriangles = [];
+  const surfaceTags = [];
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  while (lineIdx < lines.length) {
+    const rawLine = lines[lineIdx++].trim();
+    if (!rawLine) continue;
+    if (rawLine === "$Nodes") {
+      const numNodes = parseInt(lines[lineIdx++].trim(), 10) || 0;
+      for (let i = 0; i < numNodes && lineIdx < lines.length; i++) {
+        const parts = lines[lineIdx++].trim().split(/\s+/).map(Number);
+        const tag = parts[0];
+        const x = parts[1] || 0;
+        const y = parts[2] || 0;
+        const z = parts[3] || 0;
+        const globalIdx = nodes.length / 3;
+        nodes.push(x, y, z);
+        nodeTagToIndex.set(tag, globalIdx);
+        nodeTags.push(tag);
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (z < minZ) minZ = z;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+        if (z > maxZ) maxZ = z;
+      }
+      while (lineIdx < lines.length && lines[lineIdx].trim() !== "$EndNodes") {
+        lineIdx++;
+      }
+      lineIdx++;
+    } else if (rawLine === "$Elements") {
+      const numElements = parseInt(lines[lineIdx++].trim(), 10) || 0;
+      for (let i = 0; i < numElements && lineIdx < lines.length; i++) {
+        const parts = lines[lineIdx++].trim().split(/\s+/).map(Number);
+        const elmType = parts[1];
+        const numTags = parts[2] || 0;
+        const entityTag = numTags >= 2 ? parts[4] : numTags >= 1 ? parts[3] : 1;
+        const nodeStart = 3 + numTags;
+        if (elmType === 15) {
+          const nTag = parts[nodeStart];
+          const idx = nodeTagToIndex.get(nTag);
+          if (idx !== void 0) {
+            points.push({
+              tag: entityTag,
+              nodeIndex: idx,
+              x: nodes[idx * 3],
+              y: nodes[idx * 3 + 1],
+              z: nodes[idx * 3 + 2]
+            });
+          }
+        } else if (elmType === 1) {
+          const n1 = nodeTagToIndex.get(parts[nodeStart]);
+          const n2 = nodeTagToIndex.get(parts[nodeStart + 1]);
+          if (n1 !== void 0 && n2 !== void 0) {
+            if (!lineMap.has(entityTag)) lineMap.set(entityTag, []);
+            lineMap.get(entityTag).push(n1, n2);
+          }
+        } else if (elmType === 2) {
+          const n1 = nodeTagToIndex.get(parts[nodeStart]);
+          const n2 = nodeTagToIndex.get(parts[nodeStart + 1]);
+          const n3 = nodeTagToIndex.get(parts[nodeStart + 2]);
+          if (n1 !== void 0 && n2 !== void 0 && n3 !== void 0) {
+            surfaceTriangles.push(n1, n2, n3);
+            surfaceTags.push(entityTag);
+          }
+        } else if (elmType === 3) {
+          const n1 = nodeTagToIndex.get(parts[nodeStart]);
+          const n2 = nodeTagToIndex.get(parts[nodeStart + 1]);
+          const n3 = nodeTagToIndex.get(parts[nodeStart + 2]);
+          const n4 = nodeTagToIndex.get(parts[nodeStart + 3]);
+          if (n1 !== void 0 && n2 !== void 0 && n3 !== void 0 && n4 !== void 0) {
+            surfaceTriangles.push(n1, n2, n3);
+            surfaceTags.push(entityTag);
+            surfaceTriangles.push(n1, n3, n4);
+            surfaceTags.push(entityTag);
+          }
+        }
+      }
+      while (lineIdx < lines.length && lines[lineIdx].trim() !== "$EndElements") {
+        lineIdx++;
+      }
+      lineIdx++;
+    }
+  }
+  const linesList = [];
+  for (const [tag, nodeIndices] of lineMap.entries()) {
+    linesList.push({ tag, nodeIndices });
+  }
+  if (minX === Infinity) {
+    minX = -1;
+    minY = -1;
+    minZ = -1;
+    maxX = 1;
+    maxY = 1;
+    maxZ = 1;
+  }
+  const bbox = {
+    min: [minX, minY, minZ],
+    max: [maxX, maxY, maxZ]
+  };
+  const stats = {
+    numNodes: nodes.length / 3,
+    numElements: surfaceTriangles.length / 3 + linesList.reduce((acc, l) => acc + l.nodeIndices.length / 2, 0),
+    numPoints: points.length,
+    numCurves: linesList.length,
+    numSurfaces: new Set(surfaceTags).size,
+    numVolumes: 0
+  };
+  return {
+    nodes,
+    nodeTags,
+    points,
+    lines: linesList,
+    surfaceTriangles,
+    surfaceTags,
+    bbox,
+    stats
+  };
+}
+
+// src/geoParserFallback.ts
+function parseGeoFallback(geoContent) {
+  const nodes = [];
+  const nodeTags = [];
+  const points = [];
+  const lines = [];
+  const surfaceTriangles = [];
+  const surfaceTags = [];
+  const pointMap = /* @__PURE__ */ new Map();
+  const variables = /* @__PURE__ */ new Map();
+  const cleanContent = geoContent.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const statements = cleanContent.split(";").map((s) => s.trim()).filter(Boolean);
+  const evalExpr = (expr) => {
+    try {
+      let sanitized = expr.trim();
+      for (const [vName, vVal] of variables.entries()) {
+        sanitized = sanitized.replace(new RegExp(`\\b${vName}\\b`, "g"), vVal.toString());
+      }
+      const res = Function(`"use strict"; return (${sanitized});`)();
+      return typeof res === "number" && !isNaN(res) ? res : 0;
+    } catch {
+      return 0;
+    }
+  };
+  for (const stmt of statements) {
+    const varMatch = stmt.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+    if (varMatch && !stmt.includes("(")) {
+      const name = varMatch[1];
+      const val = evalExpr(varMatch[2]);
+      variables.set(name, val);
+    }
+  }
+  for (const stmt of statements) {
+    const pointMatch = stmt.match(/Point\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);
+    if (pointMatch) {
+      const tag = parseInt(pointMatch[1], 10);
+      const coords = pointMatch[2].split(",").map((s) => evalExpr(s));
+      const x = coords[0] || 0;
+      const y = coords[1] || 0;
+      const z = coords[2] || 0;
+      const nodeIndex = nodes.length / 3;
+      nodes.push(x, y, z);
+      nodeTags.push(tag);
+      const pt = { tag, nodeIndex, x, y, z };
+      points.push(pt);
+      pointMap.set(tag, { x, y, z, nodeIndex });
+      continue;
+    }
+    const lineMatch = stmt.match(/Line\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);
+    if (lineMatch) {
+      const tag = parseInt(lineMatch[1], 10);
+      const ptTags = lineMatch[2].split(",").map((s) => parseInt(s.trim(), 10));
+      if (ptTags.length >= 2) {
+        const p1 = pointMap.get(ptTags[0]);
+        const p2 = pointMap.get(ptTags[1]);
+        if (p1 && p2) {
+          lines.push({
+            tag,
+            nodeIndices: [p1.nodeIndex, p2.nodeIndex]
+          });
+        }
+      }
+      continue;
+    }
+    const splineMatch = stmt.match(/(?:Circle|Spline|BSpline|Bezier)\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);
+    if (splineMatch) {
+      const tag = parseInt(splineMatch[1], 10);
+      const ptTags = splineMatch[2].split(",").map((s) => parseInt(s.trim(), 10));
+      const pairIndices = [];
+      for (let i = 0; i < ptTags.length - 1; i++) {
+        const pa = pointMap.get(ptTags[i]);
+        const pb = pointMap.get(ptTags[i + 1]);
+        if (pa && pb) {
+          pairIndices.push(pa.nodeIndex, pb.nodeIndex);
+        }
+      }
+      if (pairIndices.length > 0) {
+        lines.push({ tag, nodeIndices: pairIndices });
+      }
+      continue;
+    }
+    const boxMatch = stmt.match(/Box\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);
+    if (boxMatch) {
+      const tag = parseInt(boxMatch[1], 10);
+      const params = boxMatch[2].split(",").map((s) => evalExpr(s));
+      const [x, y, z, dx, dy, dz] = params;
+      addBoxGeometry(tag, x || 0, y || 0, z || 0, dx || 1, dy || 1, dz || 1, nodes, nodeTags, points, lines, surfaceTriangles, surfaceTags);
+      continue;
+    }
+    const cylMatch = stmt.match(/Cylinder\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);
+    if (cylMatch) {
+      const tag = parseInt(cylMatch[1], 10);
+      const params = cylMatch[2].split(",").map((s) => evalExpr(s));
+      const [x, y, z, dx, dy, dz, r] = params;
+      addCylinderGeometry(tag, x || 0, y || 0, z || 0, dx || 0, dy || 0, dz || 1, r || 0.5, nodes, nodeTags, points, lines, surfaceTriangles, surfaceTags);
+      continue;
+    }
+    const sphereMatch = stmt.match(/Sphere\s*\(\s*(\d+)\s*\)\s*=\s*\{\s*([^}]+)\s*\}/i);
+    if (sphereMatch) {
+      const tag = parseInt(sphereMatch[1], 10);
+      const params = sphereMatch[2].split(",").map((s) => evalExpr(s));
+      const [x, y, z, r] = params;
+      addSphereGeometry(tag, x || 0, y || 0, z || 0, r || 1, nodes, nodeTags, points, lines, surfaceTriangles, surfaceTags);
+      continue;
+    }
+  }
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let i = 0; i < nodes.length; i += 3) {
+    const x = nodes[i], y = nodes[i + 1], z = nodes[i + 2];
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    if (z > maxZ) maxZ = z;
+  }
+  if (minX === Infinity) {
+    minX = -1;
+    minY = -1;
+    minZ = -1;
+    maxX = 1;
+    maxY = 1;
+    maxZ = 1;
+  }
+  const bbox = {
+    min: [minX, minY, minZ],
+    max: [maxX, maxY, maxZ]
+  };
+  const stats = {
+    numNodes: nodes.length / 3,
+    numElements: surfaceTriangles.length / 3 + lines.length,
+    numPoints: points.length,
+    numCurves: lines.length,
+    numSurfaces: new Set(surfaceTags).size,
+    numVolumes: 0
+  };
+  return {
+    nodes,
+    nodeTags,
+    points,
+    lines,
+    surfaceTriangles,
+    surfaceTags,
+    bbox,
+    stats,
+    isFallback: true
+  };
+}
+function addBoxGeometry(tag, x, y, z, dx, dy, dz, nodes, nodeTags, points, lines, triangles, surfaceTags) {
+  const baseIdx = nodes.length / 3;
+  const corners = [
+    [x, y, z],
+    [x + dx, y, z],
+    [x + dx, y + dy, z],
+    [x, y + dy, z],
+    [x, y, z + dz],
+    [x + dx, y, z + dz],
+    [x + dx, y + dy, z + dz],
+    [x, y + dy, z + dz]
+  ];
+  corners.forEach((c, idx) => {
+    nodes.push(c[0], c[1], c[2]);
+    nodeTags.push(baseIdx + idx + 1);
+    points.push({
+      tag: baseIdx + idx + 1,
+      nodeIndex: baseIdx + idx,
+      x: c[0],
+      y: c[1],
+      z: c[2]
+    });
+  });
+  const edgeIndices = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    // bottom
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    // top
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7]
+    // vertical
+  ];
+  const linePairs = [];
+  edgeIndices.forEach(([a, b]) => {
+    linePairs.push(baseIdx + a, baseIdx + b);
+  });
+  lines.push({ tag, nodeIndices: linePairs });
+  const faces = [
+    [0, 2, 1],
+    [0, 3, 2],
+    // bottom
+    [4, 5, 6],
+    [4, 6, 7],
+    // top
+    [0, 1, 5],
+    [0, 5, 4],
+    // front
+    [2, 3, 7],
+    [2, 7, 6],
+    // back
+    [0, 4, 7],
+    [0, 7, 3],
+    // left
+    [1, 2, 6],
+    [1, 6, 5]
+    // right
+  ];
+  faces.forEach(([i1, i2, i3]) => {
+    triangles.push(baseIdx + i1, baseIdx + i2, baseIdx + i3);
+    surfaceTags.push(tag);
+  });
+}
+function addCylinderGeometry(tag, x, y, z, dx, dy, dz, r, nodes, nodeTags, _points, lines, triangles, surfaceTags) {
+  const segments = 16;
+  const baseIdx = nodes.length / 3;
+  for (let s = 0; s < segments; s++) {
+    const theta = s / segments * 2 * Math.PI;
+    const cx = Math.cos(theta) * r;
+    const cy = Math.sin(theta) * r;
+    nodes.push(x + cx, y + cy, z);
+    nodeTags.push(baseIdx + s * 2 + 1);
+    nodes.push(x + cx + dx, y + cy + dy, z + dz);
+    nodeTags.push(baseIdx + s * 2 + 2);
+  }
+  const linePairs = [];
+  for (let s = 0; s < segments; s++) {
+    const next = (s + 1) % segments;
+    const b1 = baseIdx + s * 2;
+    const t1 = baseIdx + s * 2 + 1;
+    const b2 = baseIdx + next * 2;
+    const t2 = baseIdx + next * 2 + 1;
+    linePairs.push(b1, b2);
+    linePairs.push(t1, t2);
+    linePairs.push(b1, t1);
+    triangles.push(b1, b2, t2);
+    surfaceTags.push(tag);
+    triangles.push(b1, t2, t1);
+    surfaceTags.push(tag);
+  }
+  lines.push({ tag, nodeIndices: linePairs });
+}
+function addSphereGeometry(tag, cx, cy, cz, r, nodes, nodeTags, _points, _lines, triangles, surfaceTags) {
+  const rings = 10;
+  const segments = 16;
+  const baseIdx = nodes.length / 3;
+  for (let rIdx = 0; rIdx <= rings; rIdx++) {
+    const phi = rIdx / rings * Math.PI;
+    for (let sIdx = 0; sIdx <= segments; sIdx++) {
+      const theta = sIdx / segments * 2 * Math.PI;
+      const x = cx + r * Math.sin(phi) * Math.cos(theta);
+      const y = cy + r * Math.sin(phi) * Math.sin(theta);
+      const z = cz + r * Math.cos(phi);
+      nodes.push(x, y, z);
+      nodeTags.push(nodes.length / 3);
+    }
+  }
+  for (let rIdx = 0; rIdx < rings; rIdx++) {
+    for (let sIdx = 0; sIdx < segments; sIdx++) {
+      const first = baseIdx + rIdx * (segments + 1) + sIdx;
+      const second = first + segments + 1;
+      triangles.push(first, second, first + 1);
+      surfaceTags.push(tag);
+      triangles.push(second, second + 1, first + 1);
+      surfaceTags.push(tag);
+    }
+  }
+}
+
+// src/gmshLocator.ts
+var cp = __toESM(require("child_process"));
+var fs = __toESM(require("fs"));
+var os = __toESM(require("os"));
+var path = __toESM(require("path"));
+var GmshLocator = class {
+  static cachedResult = null;
+  /**
+   * Reset the cached detection result.
+   */
+  static clearCache() {
+    this.cachedResult = null;
+  }
+  /**
+   * Find Gmsh executable automatically across standard directories and PATH.
+   */
+  static async findGmsh(configuredPath) {
+    if (this.cachedResult && this.cachedResult.found) {
+      if (!configuredPath || configuredPath === this.cachedResult.path) {
+        return this.cachedResult;
+      }
+    }
+    if (configuredPath && configuredPath !== "gmsh") {
+      const verified = await this.verifyGmshExecutable(configuredPath);
+      if (verified.found) {
+        this.cachedResult = { ...verified, source: "config" };
+        return this.cachedResult;
+      }
+    }
+    const pathResult = await this.checkSystemPath();
+    if (pathResult.found) {
+      this.cachedResult = { ...pathResult, source: "path" };
+      return this.cachedResult;
+    }
+    const candidatePaths = this.getCandidateSearchPaths();
+    for (const cand of candidatePaths) {
+      if (fs.existsSync(cand)) {
+        const verified = await this.verifyGmshExecutable(cand);
+        if (verified.found) {
+          this.cachedResult = { ...verified, source: "auto-search" };
+          return this.cachedResult;
+        }
+      }
+    }
+    this.cachedResult = {
+      found: false,
+      path: configuredPath || "gmsh",
+      source: "fallback"
+    };
+    return this.cachedResult;
+  }
+  /**
+   * Check if 'gmsh' is accessible via system PATH.
+   */
+  static async checkSystemPath() {
+    const isWin = process.platform === "win32";
+    const cmd = isWin ? "where.exe gmsh" : "which gmsh";
+    return new Promise((resolve) => {
+      cp.exec(cmd, { timeout: 2e3 }, async (err, stdout) => {
+        if (!err && stdout) {
+          const firstPath = stdout.trim().split(/\r?\n/)[0].trim();
+          if (firstPath) {
+            const verified = await this.verifyGmshExecutable(firstPath);
+            if (verified.found) {
+              resolve(verified);
+              return;
+            }
+          }
+        }
+        resolve({ found: false, path: "gmsh" });
+      });
+    });
+  }
+  /**
+   * Gather a list of candidate executable paths based on OS and wildcard directories.
+   */
+  static getCandidateSearchPaths() {
+    const candidates = [];
+    const isWin = process.platform === "win32";
+    const isMac = process.platform === "darwin";
+    if (isWin) {
+      const userProfile = process.env.USERPROFILE || "";
+      const localAppData = process.env.LOCALAPPDATA || "";
+      const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+      const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+      const searchDirs = [
+        programFiles,
+        programFilesX86,
+        "C:\\",
+        path.join(userProfile, "Downloads"),
+        path.join(userProfile, "Desktop"),
+        userProfile,
+        path.join(localAppData, "Programs"),
+        "C:\\tools"
+      ];
+      for (const baseDir of searchDirs) {
+        if (!fs.existsSync(baseDir)) continue;
+        candidates.push(path.join(baseDir, "gmsh.exe"));
+        candidates.push(path.join(baseDir, "gmsh", "gmsh.exe"));
+        try {
+          const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory() && entry.name.toLowerCase().startsWith("gmsh")) {
+              candidates.push(path.join(baseDir, entry.name, "gmsh.exe"));
+              candidates.push(path.join(baseDir, entry.name, "bin", "gmsh.exe"));
+            }
+          }
+        } catch {
+        }
+      }
+      if (userProfile) {
+        candidates.push(path.join(userProfile, "anaconda3", "Scripts", "gmsh.exe"));
+        candidates.push(path.join(userProfile, "miniconda3", "Scripts", "gmsh.exe"));
+        candidates.push(path.join(userProfile, "anaconda3", "Library", "bin", "gmsh.exe"));
+        candidates.push(path.join(userProfile, "miniconda3", "Library", "bin", "gmsh.exe"));
+        candidates.push(path.join(userProfile, "scoop", "shims", "gmsh.exe"));
+      }
+    } else if (isMac) {
+      candidates.push("/Applications/Gmsh.app/Contents/MacOS/gmsh");
+      const home = os.homedir();
+      candidates.push(path.join(home, "Applications", "Gmsh.app", "Contents", "MacOS", "gmsh"));
+      candidates.push("/usr/local/bin/gmsh");
+      candidates.push("/opt/homebrew/bin/gmsh");
+      candidates.push(path.join(home, ".local", "bin", "gmsh"));
+    } else {
+      candidates.push("/usr/bin/gmsh");
+      candidates.push("/usr/local/bin/gmsh");
+      candidates.push("/opt/gmsh/bin/gmsh");
+      candidates.push(path.join(os.homedir(), ".local", "bin", "gmsh"));
+    }
+    return Array.from(new Set(candidates));
+  }
+  /**
+   * Run candidate executable with -info to ensure it is a valid Gmsh binary and extract version.
+   */
+  static async verifyGmshExecutable(execPath) {
+    return new Promise((resolve) => {
+      if (!fs.existsSync(execPath)) {
+        resolve({ found: false, path: execPath });
+        return;
+      }
+      try {
+        const proc = cp.spawn(execPath, ["-info"], {
+          windowsHide: true,
+          timeout: 4e3
+        });
+        let stdout = "";
+        proc.stdout.on("data", (d) => {
+          stdout += d.toString();
+        });
+        proc.on("close", (code) => {
+          if (code === 0 && (stdout.includes("Gmsh") || stdout.includes("Version"))) {
+            const versionMatch = stdout.match(/Version\s*:\s*([^\r\n]+)/i);
+            const version = versionMatch ? versionMatch[1].trim() : "Gmsh";
+            resolve({
+              found: true,
+              path: execPath,
+              version
+            });
+          } else {
+            resolve({ found: false, path: execPath });
+          }
+        });
+        proc.on("error", () => {
+          resolve({ found: false, path: execPath });
+        });
+      } catch {
+        resolve({ found: false, path: execPath });
+      }
+    });
+  }
+};
+
+// src/gmshRunner.ts
+var GmshRunner = class {
+  currentProcess = null;
+  tempDir;
+  constructor() {
+    this.tempDir = path2.join(os2.tmpdir(), "vscode-gmsh-preview");
+    if (!fs2.existsSync(this.tempDir)) {
+      try {
+        fs2.mkdirSync(this.tempDir, { recursive: true });
+      } catch (e) {
+        console.error("Failed to create temp directory for gmsh:", e);
+      }
+    }
+  }
+  /**
+   * Check if gmsh executable is available using automatic locator.
+   */
+  async checkGmsh(executablePath) {
+    return GmshLocator.findGmsh(executablePath);
+  }
+  /**
+   * Run Gmsh to generate mesh and return parsed MeshData.
+   */
+  async runGmsh(geoContent, originalFilePath, executablePath = "gmsh", meshDimension = 2) {
+    const startTime = Date.now();
+    if (this.currentProcess) {
+      try {
+        this.currentProcess.kill();
+      } catch {
+      }
+      this.currentProcess = null;
+    }
+    const detectResult = await GmshLocator.findGmsh(executablePath);
+    const resolvedExecPath = detectResult.found ? detectResult.path : executablePath;
+    const uniqueId = `gmsh_${Date.now()}_${Math.floor(Math.random() * 1e3)}`;
+    const tempGeoPath = path2.join(this.tempDir, `${uniqueId}.geo`);
+    const tempMshPath = path2.join(this.tempDir, `${uniqueId}.msh`);
+    try {
+      const workingDir = originalFilePath ? path2.dirname(originalFilePath) : this.tempDir;
+      await fs2.promises.writeFile(tempGeoPath, geoContent, "utf-8");
+      const args = [
+        tempGeoPath,
+        "-format",
+        "msh",
+        "-o",
+        tempMshPath
+      ];
+      if (meshDimension >= 0 && meshDimension <= 3) {
+        args.push(`-${meshDimension}`);
+      }
+      const runPromise = new Promise((resolve, reject) => {
+        const proc = cp2.spawn(resolvedExecPath, args, {
+          cwd: workingDir,
+          windowsHide: true
+        });
+        this.currentProcess = proc;
+        let stdout = "";
+        let stderr = "";
+        proc.stdout.on("data", (d) => {
+          stdout += d.toString();
+        });
+        proc.stderr.on("data", (d) => {
+          stderr += d.toString();
+        });
+        proc.on("close", (code) => {
+          this.currentProcess = null;
+          resolve({ code, stdout, stderr });
+        });
+        proc.on("error", (err) => {
+          this.currentProcess = null;
+          reject(err);
+        });
+      });
+      let execResult;
+      try {
+        execResult = await runPromise;
+      } catch (execErr) {
+        const fallbackData = parseGeoFallback(geoContent);
+        return {
+          success: false,
+          data: fallbackData,
+          error: `Gmsh failed to launch (${execErr?.message || "ENOENT"}). Using fallback preview. Run 'Gmsh: Auto-Detect Gmsh Executable' or configure 'gmsh.executablePath'.`,
+          durationMs: Date.now() - startTime
+        };
+      }
+      const allOutput = `${execResult.stdout}
+${execResult.stderr}`;
+      const errorMatch = allOutput.match(/Error\s*:\s*(?:'[^']+',\s*)?line\s*(\d+)\s*:\s*([^\r\n]+)/i);
+      const generalErrorMatch = allOutput.match(/Error\s*:\s*([^\r\n]+)/i);
+      let parsedError;
+      let errorLine;
+      if (errorMatch) {
+        errorLine = parseInt(errorMatch[1], 10);
+        parsedError = `Line ${errorLine}: ${errorMatch[2].trim()}`;
+      } else if (generalErrorMatch) {
+        parsedError = generalErrorMatch[1].trim();
+      }
+      if (fs2.existsSync(tempMshPath)) {
+        const mshContent = await fs2.promises.readFile(tempMshPath, "utf-8");
+        const meshData = parseMsh(mshContent);
+        this.cleanupFile(tempGeoPath);
+        this.cleanupFile(tempMshPath);
+        return {
+          success: !parsedError,
+          data: meshData,
+          error: parsedError,
+          errorLine,
+          rawOutput: allOutput,
+          durationMs: Date.now() - startTime
+        };
+      } else {
+        const fallbackData = parseGeoFallback(geoContent);
+        this.cleanupFile(tempGeoPath);
+        return {
+          success: false,
+          data: fallbackData,
+          error: parsedError || "Gmsh failed to generate mesh. Showing fallback preview.",
+          errorLine,
+          rawOutput: allOutput,
+          durationMs: Date.now() - startTime
+        };
+      }
+    } catch (err) {
+      const fallbackData = parseGeoFallback(geoContent);
+      return {
+        success: false,
+        data: fallbackData,
+        error: `Unexpected error: ${err?.message || err}`,
+        durationMs: Date.now() - startTime
+      };
+    }
+  }
+  /**
+   * Export to file format (STL, OBJ, or MSH).
+   */
+  async exportFile(geoContent, originalFilePath, outputPath, format, executablePath = "gmsh", meshDimension = 2) {
+    const tempGeoPath = path2.join(this.tempDir, `export_${Date.now()}.geo`);
+    const workingDir = originalFilePath ? path2.dirname(originalFilePath) : this.tempDir;
+    const detectResult = await GmshLocator.findGmsh(executablePath);
+    const resolvedExecPath = detectResult.found ? detectResult.path : executablePath;
+    try {
+      await fs2.promises.writeFile(tempGeoPath, geoContent, "utf-8");
+      const args = [
+        tempGeoPath,
+        "-format",
+        format,
+        "-o",
+        outputPath
+      ];
+      if (meshDimension >= 0 && meshDimension <= 3) {
+        args.push(`-${meshDimension}`);
+      }
+      return new Promise((resolve) => {
+        cp2.execFile(resolvedExecPath, args, { cwd: workingDir }, (err, stdout, stderr) => {
+          this.cleanupFile(tempGeoPath);
+          if (err || !fs2.existsSync(outputPath)) {
+            resolve({
+              success: false,
+              error: stderr || stdout || err?.message || "Export failed"
+            });
+          } else {
+            resolve({ success: true });
+          }
+        });
+      });
+    } catch (err) {
+      return { success: false, error: err?.message || "Export failed" };
+    }
+  }
+  cleanupFile(filePath) {
+    fs2.unlink(filePath, () => {
+    });
+  }
+};
+
+// src/previewPanel.ts
+var GmshPreviewPanel = class _GmshPreviewPanel {
+  static currentPanel;
+  static viewType = "gmshPreview";
+  _panel;
+  _extensionUri;
+  _gmshRunner;
+  _disposables = [];
+  _activeDocument = null;
+  _debounceTimer = null;
+  _currentDimension = 2;
+  _isReady = false;
+  static createOrShow(extensionUri, document) {
+    const column = vscode.ViewColumn.Beside;
+    if (_GmshPreviewPanel.currentPanel) {
+      _GmshPreviewPanel.currentPanel._panel.reveal(column);
+      if (document) {
+        _GmshPreviewPanel.currentPanel.setDocument(document);
+      }
+      return _GmshPreviewPanel.currentPanel;
+    }
+    const panel = vscode.window.createWebviewPanel(
+      _GmshPreviewPanel.viewType,
+      "Gmsh 3D Preview",
+      column,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(extensionUri, "dist"),
+          vscode.Uri.joinPath(extensionUri, "media")
+        ]
+      }
+    );
+    _GmshPreviewPanel.currentPanel = new _GmshPreviewPanel(panel, extensionUri, document);
+    return _GmshPreviewPanel.currentPanel;
+  }
+  constructor(panel, extensionUri, document) {
+    this._panel = panel;
+    this._extensionUri = extensionUri;
+    this._gmshRunner = new GmshRunner();
+    const config = this.getConfig();
+    this._currentDimension = config.meshDimension;
+    this._panel.webview.html = this._getHtmlForWebview(this._panel.webview);
+    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+    this._panel.webview.onDidReceiveMessage(
+      (message) => this._handleMessage(message),
+      null,
+      this._disposables
+    );
+    vscode.workspace.onDidChangeTextDocument(
+      (e) => {
+        if (this._activeDocument && e.document.uri.toString() === this._activeDocument.uri.toString()) {
+          this.triggerUpdate();
+        }
+      },
+      null,
+      this._disposables
+    );
+    vscode.window.onDidChangeActiveTextEditor(
+      (editor) => {
+        if (editor && this.isGmshFile(editor.document)) {
+          this.setDocument(editor.document);
+        }
+      },
+      null,
+      this._disposables
+    );
+    if (document) {
+      this.setDocument(document);
+    } else if (vscode.window.activeTextEditor && this.isGmshFile(vscode.window.activeTextEditor.document)) {
+      this.setDocument(vscode.window.activeTextEditor.document);
+    }
+  }
+  isGmshFile(doc) {
+    const ext = path3.extname(doc.fileName).toLowerCase();
+    return ext === ".geo" || ext === ".msh" || doc.languageId === "gmsh" || doc.languageId === "geo";
+  }
+  setDocument(document) {
+    this._activeDocument = document;
+    this._panel.title = `Preview: ${path3.basename(document.fileName)}`;
+    if (this._isReady) {
+      this.updatePreviewImmediate();
+    }
+  }
+  getConfig() {
+    const cfg = vscode.workspace.getConfiguration("gmsh");
+    return {
+      executablePath: cfg.get("executablePath", "gmsh"),
+      meshDimension: cfg.get("meshDimension", 2),
+      debounceDelay: cfg.get("debounceDelay", 400),
+      pointSize: cfg.get("pointSize", 1),
+      pointColor: cfg.get("pointColor", "#38bdf8"),
+      lineColor: cfg.get("lineColor", "#f59e0b"),
+      surfaceColor: cfg.get("surfaceColor", "#475569"),
+      meshWireframeColor: cfg.get("meshWireframeColor", "#94a3b8"),
+      backgroundColor: cfg.get("backgroundColor", "#111827"),
+      showLabels: cfg.get("showLabels", true),
+      showAxes: cfg.get("showAxes", true),
+      showGrid: cfg.get("showGrid", true),
+      showPoints: cfg.get("showPoints", true),
+      showLines: cfg.get("showLines", true),
+      showSurfaces: cfg.get("showSurfaces", true),
+      showMeshWireframe: cfg.get("showMeshWireframe", true)
+    };
+  }
+  triggerUpdate() {
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
+    }
+    const delay = this.getConfig().debounceDelay;
+    this._debounceTimer = setTimeout(() => {
+      this.updatePreviewImmediate();
+    }, delay);
+  }
+  async updatePreviewImmediate() {
+    if (!this._activeDocument) return;
+    const content = this._activeDocument.getText();
+    const filePath = this._activeDocument.fileName;
+    const config = this.getConfig();
+    this._panel.webview.postMessage({ command: "setLoading", loading: true });
+    const result = await this._gmshRunner.runGmsh(
+      content,
+      filePath,
+      config.executablePath,
+      this._currentDimension
+    );
+    if (result.data) {
+      this._panel.webview.postMessage({
+        command: "updateMesh",
+        data: result.data,
+        sourceFile: path3.basename(filePath)
+      });
+    }
+    if (result.error) {
+      this._panel.webview.postMessage({
+        command: "showError",
+        message: result.error,
+        line: result.errorLine
+      });
+    } else {
+      this._panel.webview.postMessage({ command: "clearError" });
+    }
+  }
+  async _handleMessage(message) {
+    switch (message.command) {
+      case "ready":
+        this._isReady = true;
+        if (this._activeDocument) {
+          this.updatePreviewImmediate();
+        }
+        break;
+      case "selectEntity":
+        this._jumpToEntityInEditor(message.entityType, message.tag);
+        break;
+      case "requestRemesh":
+        this._currentDimension = message.dimension;
+        this.updatePreviewImmediate();
+        break;
+      case "export":
+        this._handleExport(message.format, message.dimension ?? this._currentDimension);
+        break;
+      case "openSettings":
+        vscode.commands.executeCommand("workbench.action.openSettings", "gmsh");
+        break;
+      case "autoDetect":
+        vscode.commands.executeCommand("gmshPreview.autoDetect");
+        break;
+      case "browseExecutable":
+        vscode.commands.executeCommand("gmshPreview.browseExecutable");
+        break;
+    }
+  }
+  async _jumpToEntityInEditor(entityType, tag) {
+    if (!this._activeDocument) return;
+    const editor = await vscode.window.showTextDocument(this._activeDocument, {
+      viewColumn: vscode.ViewColumn.One,
+      preserveFocus: false
+    });
+    const text = this._activeDocument.getText();
+    const lines = text.split(/\r?\n/);
+    let regex;
+    if (entityType === "point") {
+      regex = new RegExp(`\\bPoint\\s*\\(\\s*${tag}\\s*\\)`, "i");
+    } else if (entityType === "line") {
+      regex = new RegExp(`\\b(?:Line|Circle|Spline|BSpline)\\s*\\(\\s*${tag}\\s*\\)`, "i");
+    } else {
+      regex = new RegExp(`\\b(?:Plane\\s+Surface|Surface|Box|Cylinder|Sphere)\\s*\\(\\s*${tag}\\s*\\)`, "i");
+    }
+    let targetLine = -1;
+    let targetCol = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].match(regex);
+      if (match && match.index !== void 0) {
+        targetLine = i;
+        targetCol = match.index;
+        break;
+      }
+    }
+    if (targetLine !== -1) {
+      const pos = new vscode.Position(targetLine, targetCol);
+      editor.selection = new vscode.Selection(pos, new vscode.Position(targetLine, lines[targetLine].length));
+      editor.revealRange(editor.selection, vscode.TextEditorRevealType.InCenter);
+    } else {
+      vscode.window.showInformationMessage(`Entity ${entityType.toUpperCase()}(${tag}) was generated automatically or not found by exact tag.`);
+    }
+  }
+  async _handleExport(format, dimension) {
+    if (!this._activeDocument) return;
+    const defaultFilename = path3.basename(this._activeDocument.fileName, path3.extname(this._activeDocument.fileName)) + `.${format}`;
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(path3.join(path3.dirname(this._activeDocument.fileName), defaultFilename)),
+      filters: {
+        [format.toUpperCase()]: [format]
+      }
+    });
+    if (!uri) return;
+    vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `Exporting to ${format.toUpperCase()}...`,
+        cancellable: false
+      },
+      async () => {
+        const config = this.getConfig();
+        const res = await this._gmshRunner.exportFile(
+          this._activeDocument.getText(),
+          this._activeDocument.fileName,
+          uri.fsPath,
+          format,
+          config.executablePath,
+          dimension
+        );
+        if (res.success) {
+          vscode.window.showInformationMessage(`Successfully exported to ${path3.basename(uri.fsPath)}`);
+        } else {
+          vscode.window.showErrorMessage(`Export failed: ${res.error}`);
+        }
+      }
+    );
+  }
+  _getHtmlForWebview(webview) {
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "preview.bundle.js"));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, "dist", "styles.css"));
+    const nonce = getNonce();
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${e.cspSource} 'unsafe-inline'; script-src 'nonce-${s}'; img-src ${e.cspSource} data: blob:;">
-  <link rel="stylesheet" href="${i}">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data: blob:;">
+  <link rel="stylesheet" href="${styleUri}">
   <title>Gmsh Realtime Preview</title>
 </head>
 <body>
@@ -88,7 +1321,168 @@ ${C.stderr}`,w=h.match(/Error\s*:\s*(?:'[^']+',\s*)?line\s*(\d+)\s*:\s*([^\r\n]+
     </div>
   </div>
 
-  <script nonce="${s}" src="${t}"></script>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
-</html>`}dispose(){for(r.currentPanel=void 0,this._debounceTimer&&clearTimeout(this._debounceTimer),this._panel.dispose();this._disposables.length;){let e=this._disposables.pop();e&&e.dispose()}}};function ge(){let r="",e="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";for(let t=0;t<32;t++)r+=e.charAt(Math.floor(Math.random()*e.length));return r}function be(r){let e=new H,t=b.workspace.getConfiguration("gmsh"),i=t.get("executablePath","gmsh");e.checkGmsh(i).then(o=>{o.found?(console.log(`[Gmsh Preview] Detected Gmsh: ${o.path} (version: ${o.version||"unknown"}, source: ${o.source})`),o.source==="auto-search"&&i==="gmsh"&&b.window.showInformationMessage(`Gmsh \u3092\u81EA\u52D5\u691C\u51FA\u3057\u307E\u3057\u305F: ${o.path} (${o.version||"OK"})`,"\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B").then(a=>{a==="\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B"&&t.update("executablePath",o.path,b.ConfigurationTarget.Global)})):console.log("[Gmsh Preview] Gmsh executable not found. Fallback geometry preview will be used.")});let s=b.window.createStatusBarItem(b.StatusBarAlignment.Right,100);s.command="gmshPreview.open",s.text="$(eye) Gmsh Preview",s.tooltip="Open Gmsh 3D Realtime Preview";let n=()=>{let o=b.window.activeTextEditor;o&&(o.document.fileName.endsWith(".geo")||o.document.fileName.endsWith(".msh"))?s.show():s.hide()};r.subscriptions.push(b.window.onDidChangeActiveTextEditor(n),s),n(),r.subscriptions.push(b.commands.registerCommand("gmshPreview.open",o=>{let a;if(o){b.workspace.openTextDocument(o).then(d=>{U.createOrShow(r.extensionUri,d)});return}b.window.activeTextEditor&&(a=b.window.activeTextEditor.document),U.createOrShow(r.extensionUri,a)})),r.subscriptions.push(b.commands.registerCommand("gmshPreview.remesh",()=>{U.currentPanel&&U.currentPanel.updatePreviewImmediate()})),r.subscriptions.push(b.commands.registerCommand("gmshPreview.autoDetect",async()=>{A.clearCache();let o=await b.window.withProgress({location:b.ProgressLocation.Notification,title:"Searching for Gmsh executable across system directories..."},async()=>await A.findGmsh());if(o.found){let a=await b.window.showInformationMessage(`Gmsh \u304C\u898B\u3064\u304B\u308A\u307E\u3057\u305F: ${o.path} (Version: ${o.version||"unknown"})`,"\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B","\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u66F4\u65B0");a==="\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B"&&await b.workspace.getConfiguration("gmsh").update("executablePath",o.path,b.ConfigurationTarget.Global),(a==="\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u66F4\u65B0"||a==="\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B")&&U.currentPanel&&U.currentPanel.updatePreviewImmediate()}else{let a=await b.window.showWarningMessage("Gmsh \u5B9F\u884C\u30D5\u30A1\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u624B\u52D5\u3067\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E\u3057\u307E\u3059\u304B\uFF1F","\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E...","Gmsh \u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u30DA\u30FC\u30B8");a==="\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E..."?b.commands.executeCommand("gmshPreview.browseExecutable"):a==="Gmsh \u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u30DA\u30FC\u30B8"&&b.env.openExternal(b.Uri.parse("https://gmsh.info/#Download"))}})),r.subscriptions.push(b.commands.registerCommand("gmshPreview.browseExecutable",async()=>{let o=process.platform==="win32",a=await b.window.showOpenDialog({canSelectFiles:!0,canSelectFolders:!1,canSelectMany:!1,openLabel:"Select Gmsh Executable",filters:o?{Executable:["exe"]}:void 0});if(a&&a.length>0){let d=a[0].fsPath,l=await A.verifyGmshExecutable(d);l.found?(await b.workspace.getConfiguration("gmsh").update("executablePath",d,b.ConfigurationTarget.Global),b.window.showInformationMessage(`Gmsh \u30D1\u30B9\u3092\u8A2D\u5B9A\u3057\u307E\u3057\u305F: ${d} (Version: ${l.version||"OK"})`),U.currentPanel&&U.currentPanel.updatePreviewImmediate()):b.window.showErrorMessage(`\u9078\u629E\u3055\u308C\u305F\u30D5\u30A1\u30A4\u30EB\u306F\u6709\u52B9\u306A Gmsh \u5B9F\u884C\u30D5\u30A1\u30A4\u30EB\u3068\u3057\u3066\u8A8D\u8B58\u3055\u308C\u307E\u305B\u3093\u3067\u3057\u305F: ${d}`)}}))}function we(){U.currentPanel&&U.currentPanel.dispose()}0&&(module.exports={activate,deactivate});
+</html>`;
+  }
+  dispose() {
+    _GmshPreviewPanel.currentPanel = void 0;
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
+    }
+    this._panel.dispose();
+    while (this._disposables.length) {
+      const d = this._disposables.pop();
+      if (d) {
+        d.dispose();
+      }
+    }
+  }
+};
+function getNonce() {
+  let text = "";
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+// src/extension.ts
+function activate(context) {
+  const runner = new GmshRunner();
+  const config = vscode2.workspace.getConfiguration("gmsh");
+  const configuredPath = config.get("executablePath", "gmsh");
+  runner.checkGmsh(configuredPath).then((status) => {
+    if (status.found) {
+      console.log(`[Gmsh Preview] Detected Gmsh: ${status.path} (version: ${status.version || "unknown"}, source: ${status.source})`);
+      if (status.source === "auto-search" && configuredPath === "gmsh") {
+        vscode2.window.showInformationMessage(
+          `Gmsh \u3092\u81EA\u52D5\u691C\u51FA\u3057\u307E\u3057\u305F: ${status.path} (${status.version || "OK"})`,
+          "\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B"
+        ).then((action) => {
+          if (action === "\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B") {
+            config.update("executablePath", status.path, vscode2.ConfigurationTarget.Global);
+          }
+        });
+      }
+    } else {
+      console.log(`[Gmsh Preview] Gmsh executable not found. Fallback geometry preview will be used.`);
+    }
+  });
+  const statusBarItem = vscode2.window.createStatusBarItem(vscode2.StatusBarAlignment.Right, 100);
+  statusBarItem.command = "gmshPreview.open";
+  statusBarItem.text = "$(eye) Gmsh Preview";
+  statusBarItem.tooltip = "Open Gmsh 3D Realtime Preview";
+  const updateStatusBarVisibility = () => {
+    const editor = vscode2.window.activeTextEditor;
+    if (editor && (editor.document.fileName.endsWith(".geo") || editor.document.fileName.endsWith(".msh"))) {
+      statusBarItem.show();
+    } else {
+      statusBarItem.hide();
+    }
+  };
+  context.subscriptions.push(
+    vscode2.window.onDidChangeActiveTextEditor(updateStatusBarVisibility),
+    statusBarItem
+  );
+  updateStatusBarVisibility();
+  context.subscriptions.push(
+    vscode2.commands.registerCommand("gmshPreview.open", (uri) => {
+      let doc;
+      if (uri) {
+        vscode2.workspace.openTextDocument(uri).then((d) => {
+          GmshPreviewPanel.createOrShow(context.extensionUri, d);
+        });
+        return;
+      }
+      if (vscode2.window.activeTextEditor) {
+        doc = vscode2.window.activeTextEditor.document;
+      }
+      GmshPreviewPanel.createOrShow(context.extensionUri, doc);
+    })
+  );
+  context.subscriptions.push(
+    vscode2.commands.registerCommand("gmshPreview.remesh", () => {
+      if (GmshPreviewPanel.currentPanel) {
+        GmshPreviewPanel.currentPanel.updatePreviewImmediate();
+      }
+    })
+  );
+  context.subscriptions.push(
+    vscode2.commands.registerCommand("gmshPreview.autoDetect", async () => {
+      GmshLocator.clearCache();
+      const result = await vscode2.window.withProgress(
+        {
+          location: vscode2.ProgressLocation.Notification,
+          title: "Searching for Gmsh executable across system directories..."
+        },
+        async () => {
+          return await GmshLocator.findGmsh();
+        }
+      );
+      if (result.found) {
+        const choice = await vscode2.window.showInformationMessage(
+          `Gmsh \u304C\u898B\u3064\u304B\u308A\u307E\u3057\u305F: ${result.path} (Version: ${result.version || "unknown"})`,
+          "\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B",
+          "\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u66F4\u65B0"
+        );
+        if (choice === "\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B") {
+          await vscode2.workspace.getConfiguration("gmsh").update("executablePath", result.path, vscode2.ConfigurationTarget.Global);
+        }
+        if (choice === "\u30D7\u30EC\u30D3\u30E5\u30FC\u3092\u66F4\u65B0" || choice === "\u8A2D\u5B9A\u306B\u4FDD\u5B58\u3059\u308B") {
+          if (GmshPreviewPanel.currentPanel) {
+            GmshPreviewPanel.currentPanel.updatePreviewImmediate();
+          }
+        }
+      } else {
+        const choice = await vscode2.window.showWarningMessage(
+          "Gmsh \u5B9F\u884C\u30D5\u30A1\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u624B\u52D5\u3067\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E\u3057\u307E\u3059\u304B\uFF1F",
+          "\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E...",
+          "Gmsh \u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u30DA\u30FC\u30B8"
+        );
+        if (choice === "\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E...") {
+          vscode2.commands.executeCommand("gmshPreview.browseExecutable");
+        } else if (choice === "Gmsh \u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u30DA\u30FC\u30B8") {
+          vscode2.env.openExternal(vscode2.Uri.parse("https://gmsh.info/#Download"));
+        }
+      }
+    })
+  );
+  context.subscriptions.push(
+    vscode2.commands.registerCommand("gmshPreview.browseExecutable", async () => {
+      const isWin = process.platform === "win32";
+      const fileUris = await vscode2.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        openLabel: "Select Gmsh Executable",
+        filters: isWin ? { "Executable": ["exe"] } : void 0
+      });
+      if (fileUris && fileUris.length > 0) {
+        const selectedPath = fileUris[0].fsPath;
+        const verified = await GmshLocator.verifyGmshExecutable(selectedPath);
+        if (verified.found) {
+          await vscode2.workspace.getConfiguration("gmsh").update("executablePath", selectedPath, vscode2.ConfigurationTarget.Global);
+          vscode2.window.showInformationMessage(`Gmsh \u30D1\u30B9\u3092\u8A2D\u5B9A\u3057\u307E\u3057\u305F: ${selectedPath} (Version: ${verified.version || "OK"})`);
+          if (GmshPreviewPanel.currentPanel) {
+            GmshPreviewPanel.currentPanel.updatePreviewImmediate();
+          }
+        } else {
+          vscode2.window.showErrorMessage(`\u9078\u629E\u3055\u308C\u305F\u30D5\u30A1\u30A4\u30EB\u306F\u6709\u52B9\u306A Gmsh \u5B9F\u884C\u30D5\u30A1\u30A4\u30EB\u3068\u3057\u3066\u8A8D\u8B58\u3055\u308C\u307E\u305B\u3093\u3067\u3057\u305F: ${selectedPath}`);
+        }
+      }
+    })
+  );
+}
+function deactivate() {
+  if (GmshPreviewPanel.currentPanel) {
+    GmshPreviewPanel.currentPanel.dispose();
+  }
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  activate,
+  deactivate
+});
 //# sourceMappingURL=extension.js.map
