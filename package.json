@@ -3,12 +3,12 @@
   "displayName": "Gmsh (Language Support & 3D Preview)",
   "description": "Comprehensive Gmsh language support (IntelliSense autocompletion, snippets, hover docs) with real-time interactive 3D mesh preview",
   "version": "0.2.0",
-  "publisher": "local",
+  "publisher": "Ringo3Apples",
   "license": "MIT",
   "icon": "resources/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Ringo3apples/gmsh-preview"
+    "url": "https://github.com/Ringo3apples/gmshExtension"
   },
   "engines": {
     "vscode": "^1.80.0"
