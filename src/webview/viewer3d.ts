@@ -403,20 +403,33 @@ export class Viewer3D {
       geom.setIndex(data.surfaceTriangles);
       geom.computeVertexNormals();
 
-      // PBR Material (Roughness: 0.5, Metalness: 0.8)
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0x475569, // Slate gray
+      // Front side: Vibrant CAD Blue (0x2563eb)
+      const matFront = new THREE.MeshStandardMaterial({
+        color: 0x2563eb,
         roughness: 0.5,
         metalness: 0.8,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         flatShading: true,
         polygonOffset: true,
         polygonOffsetFactor: 1,
         polygonOffsetUnits: 1
       });
+      const meshFront = new THREE.Mesh(geom, matFront);
+      this.surfacesGroup.add(meshFront);
 
-      const mesh = new THREE.Mesh(geom, mat);
-      this.surfacesGroup.add(mesh);
+      // Back side: Distinct Red (0xdc2626)
+      const matBack = new THREE.MeshStandardMaterial({
+        color: 0xdc2626,
+        roughness: 0.5,
+        metalness: 0.8,
+        side: THREE.BackSide,
+        flatShading: true,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
+      });
+      const meshBack = new THREE.Mesh(geom, matBack);
+      this.surfacesGroup.add(meshBack);
 
       // 6. Mesh Wireframe
       const wireframeMat = new THREE.LineBasicMaterial({
