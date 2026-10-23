@@ -2,7 +2,7 @@
   "name": "gmsh-preview",
   "displayName": "Gmsh (Language Support & 3D Preview)",
   "description": "Comprehensive Gmsh language support (IntelliSense autocompletion, snippets, hover docs) with real-time interactive 3D mesh preview",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "Ringo3Apples",
   "license": "MIT",
   "icon": "resources/icon.png",

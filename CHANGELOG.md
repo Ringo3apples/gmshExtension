@@ -2,6 +2,15 @@
 
 All notable changes to the **Gmsh (Language Support & 3D Preview)** extension will be documented in this file.
 
+## [0.2.1] - 2026-10-24
+### Added
+- **Two-Tone Surface Rendering**: Front and back faces are rendered in distinct colors (Vibrant CAD Blue on front, Crimson Red on back) for instant surface normal identification.
+- **PBR Flat Shading & Optimized Lighting**: Flat-shaded MeshStandardMaterial with calibrated ambient and directional lights for sharp, clear planar recognition without specular glare.
+
+### Fixed
+- **Clean 2D Surface Meshing**: Streamlined MSH parser to ensure planar surfaces render without internal volumetric mesh clutter.
+- **CI / Package Lock Sync**: Resolved dependency lockfile discrepancies for GitHub Actions builds.
+
 ## [0.2.0] - 2026-10-20
 ### Added
 - **IntelliSense Autocompletion**: Full command autocompletion for Gmsh primitives, OpenCASCADE CAD shapes, Boolean operations, and mesh controls.
