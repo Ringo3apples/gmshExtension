@@ -34,11 +34,33 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  // Status Bar Item
+  // Status Bar Items
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = 'gmshPreview.open';
   statusBarItem.text = '$(eye) Gmsh Preview';
   statusBarItem.tooltip = 'Open Gmsh 3D Realtime Preview';
+
+  const gridStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+  gridStatusBarItem.command = 'gmshPreview.open';
+  gridStatusBarItem.tooltip = 'Gmsh Preview Grid Scale';
+
+  GmshPreviewPanel.onGridInfoUpdate = (info) => {
+    if (info && info.visible && info.step > 0) {
+      const stepStr = parseFloat(info.step.toPrecision(6)).toString();
+      const unitStr = info.step === 1 ? 'unit' : 'units';
+      gridStatusBarItem.text = `$(symbol-ruler) ${stepStr} ${unitStr}/grid`;
+      gridStatusBarItem.tooltip = `Gmsh 3D Preview: Grid scale is ${stepStr} ${unitStr} per grid cell (Click to open preview)`;
+      gridStatusBarItem.show();
+    } else if (info && !info.visible && info.step > 0) {
+      const stepStr = parseFloat(info.step.toPrecision(6)).toString();
+      const unitStr = info.step === 1 ? 'unit' : 'units';
+      gridStatusBarItem.text = `$(symbol-ruler) Grid: Off (${stepStr} ${unitStr}/grid)`;
+      gridStatusBarItem.tooltip = `Gmsh 3D Preview: Grid is hidden (Scale: ${stepStr} ${unitStr}/grid)`;
+      gridStatusBarItem.show();
+    } else {
+      gridStatusBarItem.hide();
+    }
+  };
 
   const updateStatusBarVisibility = () => {
     const editor = vscode.window.activeTextEditor;
@@ -46,12 +68,14 @@ export function activate(context: vscode.ExtensionContext) {
       statusBarItem.show();
     } else {
       statusBarItem.hide();
+      gridStatusBarItem.hide();
     }
   };
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(updateStatusBarVisibility),
-    statusBarItem
+    statusBarItem,
+    gridStatusBarItem
   );
   updateStatusBarVisibility();
 

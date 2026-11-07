@@ -8,6 +8,7 @@ export class LabelManager {
   private pointSprites: THREE.Sprite[] = [];
   private lineSprites: THREE.Sprite[] = [];
   private visible: boolean = true;
+  private targetPixelHeight: number = 26;
 
   constructor(scene: THREE.Scene) {
     this.group = new THREE.Group();
@@ -59,7 +60,7 @@ export class LabelManager {
     points: GeometricPoint[],
     lines: GeometricLine[],
     nodes: number[],
-    scale: number,
+    _scale: number,
     showPoints: boolean = true,
     showLines: boolean = true
   ) {
@@ -68,13 +69,10 @@ export class LabelManager {
     this.setPointLabelsVisible(showPoints);
     this.setLineLabelsVisible(showLines);
 
-    const spriteScale = Math.max(scale * 0.06, 0.2);
-
     // Create Point labels: "P1", "P2", ...
     points.forEach((pt) => {
       const sprite = this.createTextSprite(`P${pt.tag}`, '#38bdf8', '#0f172a');
       sprite.position.set(pt.x, pt.y, pt.z);
-      sprite.scale.set(spriteScale * 1.5, spriteScale * 0.75, 1);
       sprite.userData = { entityType: 'point', tag: pt.tag };
       this.pointGroup.add(sprite);
       this.pointSprites.push(sprite);
@@ -92,12 +90,61 @@ export class LabelManager {
 
         const sprite = this.createTextSprite(`L${line.tag}`, '#f59e0b', '#0f172a');
         sprite.position.set(mx, my, mz);
-        sprite.scale.set(spriteScale * 1.5, spriteScale * 0.75, 1);
         sprite.userData = { entityType: 'line', tag: line.tag };
         this.lineGroup.add(sprite);
         this.lineSprites.push(sprite);
       }
     });
+  }
+
+  /**
+   * Keep label pixel size constant on screen regardless of camera zoom or perspective distance
+   */
+  public updateScales(camera: THREE.Camera, viewportHeight: number) {
+    if (!this.visible || viewportHeight <= 0) return;
+
+    const hasPoints = this.pointGroup.visible && this.pointSprites.length > 0;
+    const hasLines = this.lineGroup.visible && this.lineSprites.length > 0;
+    if (!hasPoints && !hasLines) return;
+
+    if (camera instanceof THREE.PerspectiveCamera) {
+      const factor = (this.targetPixelHeight / viewportHeight) * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const camPos = camera.position;
+
+      if (hasPoints) {
+        for (let i = 0; i < this.pointSprites.length; i++) {
+          const s = this.pointSprites[i];
+          const dist = camPos.distanceTo(s.position);
+          const h = dist * factor;
+          s.scale.set(h * 2, h, 1);
+        }
+      }
+
+      if (hasLines) {
+        for (let i = 0; i < this.lineSprites.length; i++) {
+          const s = this.lineSprites[i];
+          const dist = camPos.distanceTo(s.position);
+          const h = dist * factor;
+          s.scale.set(h * 2, h, 1);
+        }
+      }
+    } else if (camera instanceof THREE.OrthographicCamera) {
+      const frustumHeight = (camera.top - camera.bottom) / camera.zoom;
+      const h = (this.targetPixelHeight / viewportHeight) * frustumHeight;
+      const w = h * 2;
+
+      if (hasPoints) {
+        for (let i = 0; i < this.pointSprites.length; i++) {
+          this.pointSprites[i].scale.set(w, h, 1);
+        }
+      }
+
+      if (hasLines) {
+        for (let i = 0; i < this.lineSprites.length; i++) {
+          this.lineSprites[i].scale.set(w, h, 1);
+        }
+      }
+    }
   }
 
   private createTextSprite(text: string, textColor: string, bgColor: string): THREE.Sprite {

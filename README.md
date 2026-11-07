@@ -10,6 +10,13 @@
 </p>
 
 <p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=Ringo3Apples.gmsh-preview"><img src="https://img.shields.io/visual-studio-marketplace/v/Ringo3Apples.gmsh-preview?label=VS%20Marketplace&logo=visual-studio-code" alt="Visual Studio Marketplace" /></a>
+  <a href="https://open-vsx.org/extension/Ringo3Apples/gmsh-preview"><img src="https://img.shields.io/open-vsx/v/Ringo3Apples/gmsh-preview?label=Open%20VSX&logo=eclipse-ide" alt="Open VSX" /></a>
+  <a href="https://github.com/Ringo3apples/gmshExtension/releases"><img src="https://img.shields.io/github/v/release/Ringo3apples/gmshExtension?label=GitHub%20Release" alt="GitHub Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> •
   <a href="#getting-started">Getting Started</a> •
   <a href="#configuration">Configuration</a> •
@@ -32,7 +39,8 @@
 - **Live Sync**: As you edit `.geo` files, the 3D preview automatically updates in milliseconds (debounced).
 - **Two-Way Code Navigation**: Click on any point, curve, or surface in the 3D viewport to immediately jump and focus the editor cursor on its definition line!
 - **Mesh Dimension Switching**: Toggle between 0D (geometry points/curves), 1D (line elements), 2D (surface triangles/quads), and 3D (volume tetrahedra/hexahedra).
-- **3D Entity Labels**: Visual tags for points (`P1`, `P2`...) and curves (`C1`, `C2`...) directly overlaid in 3D space.
+- **Screen-Space Constant Labels**: Visual tags for points (`P1`, `P2`...) and lines (`L1`, `L2`...) automatically maintain an optimal, readable pixel size regardless of camera zoom or perspective distance.
+- **Adaptive Ground Grid & Scale Bar**: Smart grid stepping (`1, 2, 5 × 10^n`) ensures 1 cell corresponds directly to natural model units (e.g. 1 unit in `Box`). Scale indicator overlay directly on the 3D viewport, preview inspector, and status bar.
 - **Display Toggles**: Easily toggle points, boundary curves, surface faces, mesh wireframe, labels, ground grid, and coordinate axes.
 - **Multi-Angle Camera**: Instant presets for Top, Front, Side, Isometric, and Fit-to-Screen views, plus Perspective / Orthographic projection toggle.
 - **Export Options**: Export the current model to **STL (`.stl`)**, **Wavefront OBJ (`.obj`)**, or **Gmsh Mesh (`.msh`)** directly from the preview toolbar.
@@ -44,20 +52,36 @@
 
 ### Installation
 
-#### Option A: Install from GitHub Releases (.vsix)
-1. Download `gmsh-preview-0.2.0.vsix` from [GitHub Releases](https://github.com/Ringo3apples/gmshExtension/releases).
+#### Method 1: Visual Studio Code Marketplace (Recommended for VS Code)
+Search for **`Gmsh`** or **`gmsh-preview`** in the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`) and click **Install**.
+
+Or install directly from your terminal:
+```bash
+code --install-extension Ringo3Apples.gmsh-preview
+```
+👉 [View on Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Ringo3Apples.gmsh-preview)
+
+#### Method 2: Open VSX Registry (Recommended for VSCodium, Gitpod, Theia)
+Search for **`gmsh-preview`** in the Open VSX Extensions view, or install from the terminal:
+```bash
+codium --install-extension Ringo3Apples.gmsh-preview
+```
+👉 [View on Open VSX Registry](https://open-vsx.org/extension/Ringo3Apples/gmsh-preview)
+
+#### Method 3: Install from GitHub Releases (.vsix)
+1. Download the latest `gmsh-preview-*.vsix` from [GitHub Releases](https://github.com/Ringo3apples/gmshExtension/releases).
 2. In VS Code, open Extensions (`Ctrl+Shift+X` / `Cmd+Shift+X`).
 3. Click the **`...`** (Views and More Actions) menu in the top right, then select **Install from VSIX...** (or simply drag and drop the `.vsix` file into the VS Code window).
 
-#### Option B: Build and Install from Source
+#### Method 4: Build and Install from Source
 ```bash
 git clone https://github.com/Ringo3apples/gmshExtension.git
 cd gmshExtension
 npm install
 npm run build
-npx @vscode/vsce package
+npm run package
+code --install-extension gmsh-preview-*.vsix
 ```
-Install the resulting `.vsix` file via `code --install-extension gmsh-preview-0.2.0.vsix`.
 
 ---
 
@@ -126,11 +150,30 @@ Type the prefix and press `Tab` or `Enter` to expand:
 - **IntelliSense 補完**: `Point`, `Circle`, `Extrude`, `MeshSize` 等の主要コマンドおよびファイル内で定義した変数を自動補完。
 - **ホバー表示**: コマンドの上にマウスを置くだけで構文仕様・引数の意味・使用例を表示。
 - **3D プレビュー**: コード編集時にミリ秒単位で再描画。3D 上の点・線・面をクリックするとコードの該当行へ即座にジャンプ。
+- **画面固定サイズのラベル表示**: ズーム倍率に関わらず、点（`P1`）や線（`L1`）のラベルが常に読みやすい一定ピクセルサイズを維持。
+- **直感的なグリッド＆スケール表示**: モデル寸法に応じたキリの良いマス目単位（`1, 2, 5 × 10^n`）を自動算出。3D 画面上・インスペクター・VS Code 最下部ステータスバーの3箇所で「1マスの長さ」を確認可能。
 - **Gmsh 自動検出**: お使いの PC 内の `gmsh.exe` を自動検出するため、環境変数の事前設定が不要です。
 
 #### インストール方法（日本語）
-1. [GitHub Releases](https://github.com/Ringo3apples/gmshExtension/releases) から最新の `gmsh-preview-0.2.0.vsix` をダウンロードします。
-2. VS Code の拡張機能ビュー（`Ctrl+Shift+X`）を開き、右上の「**…**」メニューから「**VSIX からのインストール...**」を選択してダウンロードしたファイルを選びます（または VS Code ウィンドウへファイルをドラッグ＆ドロップ）。
+
+##### 方法 1: Visual Studio Code マーケットプレイスからインストール（推奨）
+VS Code の拡張機能ビュー（`Ctrl+Shift+X`）で **`gmsh-preview`** または **`Gmsh`** を検索し、「**インストール**」をクリックします。
+ターミナルから直接インストールすることも可能です：
+```bash
+code --install-extension Ringo3Apples.gmsh-preview
+```
+👉 [Visual Studio Marketplace で見る](https://marketplace.visualstudio.com/items?itemName=Ringo3Apples.gmsh-preview)
+
+##### 方法 2: Open VSX レジストリからインストール（VSCodium / Gitpod / Eclipse Theia 等）
+VSCodium 等の拡張機能ビューから **`gmsh-preview`** を検索してインストール、またはターミナルから：
+```bash
+codium --install-extension Ringo3Apples.gmsh-preview
+```
+👉 [Open VSX Registry で見る](https://open-vsx.org/extension/Ringo3Apples/gmsh-preview)
+
+##### 方法 3: GitHub Releases (.vsix) からの手動インストール
+1. [GitHub Releases](https://github.com/Ringo3apples/gmshExtension/releases) から最新の `gmsh-preview-*.vsix` パッケージをダウンロードします。
+2. VS Code の拡張機能ビュー（`Ctrl+Shift+X`）の右上「**…**」メニューから「**VSIX からのインストール...**」を選択します（またはファイルを VS Code ウィンドウへドラッグ＆ドロップ）。
 
 ---
 

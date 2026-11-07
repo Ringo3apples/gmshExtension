@@ -79,7 +79,8 @@ export type WebviewMessage =
   | { command: 'openSettings' }
   | { command: 'autoDetect' }
   | { command: 'browseExecutable' }
-  | { command: 'ready' };
+  | { command: 'ready' }
+  | { command: 'gridInfo'; step: number; size: number; visible: boolean };
 
 export type ExtensionMessage =
   | { command: 'updateMesh'; data: MeshData; sourceFile: string }

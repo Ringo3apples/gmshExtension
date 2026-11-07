@@ -3,10 +3,18 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { MeshData, GeometricPoint, GeometricLine } from '../types';
 import { LabelManager } from './labelManager';
 
+export interface GridInfo {
+  size: number;
+  divisions: number;
+  step: number;
+  visible: boolean;
+}
+
 export interface ViewerOptions {
   container: HTMLElement;
   onSelectEntity?: (entityType: 'point' | 'line' | 'surface', tag: number) => void;
   onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number] } | null) => void;
+  onGridUpdate?: (info: GridInfo) => void;
 }
 
 export class Viewer3D {
@@ -42,6 +50,8 @@ export class Viewer3D {
   private mouse: THREE.Vector2;
   private onSelectEntity?: (entityType: 'point' | 'line' | 'surface', tag: number) => void;
   private onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number] } | null) => void;
+  private onGridUpdate?: (info: GridInfo) => void;
+  private gridInfo: GridInfo = { size: 10, divisions: 20, step: 0.5, visible: true };
 
   // Display toggles
   public showPoints: boolean = true;
@@ -57,6 +67,7 @@ export class Viewer3D {
     this.container = options.container;
     this.onSelectEntity = options.onSelectEntity;
     this.onHoverEntity = options.onHoverEntity;
+    this.onGridUpdate = options.onGridUpdate;
 
     const width = this.container.clientWidth || 800;
     const height = this.container.clientHeight || 600;
@@ -444,6 +455,7 @@ export class Viewer3D {
 
     // 7. Update Labels (linked with Points and Lines visibility)
     this.labelManager.updateLabels(data.points, data.lines, data.nodes, radius, this.showPoints, this.showLines);
+    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientHeight);
 
     // Apply visibility states
     this.pointsGroup.visible = this.showPoints;
@@ -456,23 +468,112 @@ export class Viewer3D {
     }
   }
 
+  public getGridInfo(): GridInfo {
+    return this.gridInfo;
+  }
+
+  private calculateNiceStep(idealStep: number): number {
+    if (idealStep <= 0 || !isFinite(idealStep)) return 1;
+    const exponent = Math.floor(Math.log10(idealStep));
+    const pow10 = Math.pow(10, exponent);
+    const frac = idealStep / pow10;
+
+    let niceFrac = 1;
+    // Standard geometric-mean thresholds for 1, 2, 5 x 10^n
+    if (frac < 1.414) {
+      niceFrac = 1;
+    } else if (frac < 3.162) {
+      niceFrac = 2;
+    } else if (frac < 7.071) {
+      niceFrac = 5;
+    } else {
+      niceFrac = 10;
+    }
+    const step = niceFrac * pow10;
+    return parseFloat(step.toPrecision(8));
+  }
+
+  /**
+   * Dynamically adapts the grid step (1, 2, 5 x 10^n) based on camera zoom / distance,
+   * snaps to coordinate axes at world origin, and ensures the grid fully covers the viewport.
+   */
+  private updateAdaptiveGrid() {
+    if (!this.showGrid) return;
+
+    const cam = this.currentCamera;
+    const target = this.controls.target;
+    const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
+
+    let viewHeight: number;
+    if (cam instanceof THREE.PerspectiveCamera) {
+      const dist = cam.position.distanceTo(target);
+      viewHeight = 2 * dist * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    } else if (cam instanceof THREE.OrthographicCamera) {
+      viewHeight = (cam.top - cam.bottom) / cam.zoom;
+    } else {
+      return;
+    }
+
+    const viewWidth = viewHeight * aspect;
+    const viewportH = this.container.clientHeight || 600;
+
+    // Ideal step targeting ~65 pixels per cell on screen
+    const idealStep = (viewHeight / viewportH) * 65;
+    const step = this.calculateNiceStep(idealStep);
+
+    // Ample size ensuring full screen coverage from any angle
+    const diagonal = Math.sqrt(viewWidth * viewWidth + viewHeight * viewHeight);
+    const requiredSize = diagonal * 2.8;
+
+    let divisions = Math.ceil(requiredSize / step);
+    if (divisions % 2 !== 0) divisions++;
+    divisions = Math.min(Math.max(divisions, 40), 120);
+
+    const size = step * divisions;
+
+    // Snap center to step multiples so ground grid lines stay locked to world coordinates (0, 0, 0)
+    const snapX = Math.round(target.x / step) * step;
+    const snapZ = Math.round(target.z / step) * step;
+
+    // Recreate grid only when scale step or division count changes
+    if (!this.gridHelper || this.gridInfo.step !== step || this.gridInfo.divisions !== divisions) {
+      if (this.gridHelper) {
+        this.helpersGroup.remove(this.gridHelper);
+        this.gridHelper.geometry.dispose();
+        if (Array.isArray(this.gridHelper.material)) {
+          this.gridHelper.material.forEach((m: any) => m.dispose());
+        } else {
+          this.gridHelper.material.dispose();
+        }
+      }
+
+      this.gridHelper = new THREE.GridHelper(size, divisions, 0x475569, 0x1e293b);
+      this.gridHelper.position.set(snapX, 0, snapZ);
+      this.gridHelper.visible = this.showGrid;
+      this.helpersGroup.add(this.gridHelper);
+
+      this.gridInfo = { size, divisions, step, visible: this.showGrid };
+      this.onGridUpdate?.(this.gridInfo);
+    } else {
+      // Reposition seamlessly as camera pans
+      if (this.gridHelper.position.x !== snapX || this.gridHelper.position.z !== snapZ) {
+        this.gridHelper.position.set(snapX, 0, snapZ);
+      }
+    }
+  }
+
   private updateHelpers(_center: THREE.Vector3, radius: number) {
-    const size = Math.max(radius * 2.5, 5);
-    const divisions = 20;
-
-    // Grid at origin (0, 0, 0)
-    this.gridHelper = new THREE.GridHelper(size, divisions, 0x334155, 0x1e293b);
-    this.gridHelper.position.set(0, 0, 0);
-    this.helpersGroup.add(this.gridHelper);
-
     // Axes at origin (0, 0, 0)
     this.axesHelper = new THREE.AxesHelper(radius * 0.8);
     this.axesHelper.position.set(0, 0, 0);
     this.helpersGroup.add(this.axesHelper);
 
+    // Initial adaptive grid setup
+    this.updateAdaptiveGrid();
+
     // Grid and Axes visibility linked together
     this.helpersGroup.visible = this.showGrid;
-    this.gridHelper.visible = this.showGrid;
+    if (this.gridHelper) this.gridHelper.visible = this.showGrid;
     this.axesHelper.visible = this.showGrid;
   }
 
@@ -668,9 +769,12 @@ export class Viewer3D {
       case 'axes':
         this.showGrid = enabled;
         this.showAxes = enabled;
+        this.gridInfo.visible = enabled;
+        this.onGridUpdate?.(this.gridInfo);
         this.helpersGroup.visible = enabled;
         if (this.gridHelper) this.gridHelper.visible = enabled;
         if (this.axesHelper) this.axesHelper.visible = enabled;
+        if (enabled) this.updateAdaptiveGrid();
         break;
     }
   }
@@ -714,6 +818,8 @@ export class Viewer3D {
     requestAnimationFrame(this.animate);
     this.controls.update();
     this.updateLights();
+    this.updateAdaptiveGrid();
+    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientHeight);
     this.renderer.render(this.scene, this.currentCamera);
   };
 }

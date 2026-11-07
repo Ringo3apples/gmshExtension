@@ -6,6 +6,7 @@ import { ExtensionConfig, WebviewMessage } from './types';
 export class GmshPreviewPanel {
   public static currentPanel: GmshPreviewPanel | undefined;
   public static readonly viewType = 'gmshPreview';
+  public static onGridInfoUpdate?: (info: { step: number; size: number; visible: boolean }) => void;
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
@@ -209,6 +210,10 @@ export class GmshPreviewPanel {
         this._handleExport(message.format, message.dimension ?? this._currentDimension);
         break;
 
+      case 'gridInfo':
+        GmshPreviewPanel.onGridInfoUpdate?.(message);
+        break;
+
       case 'openSettings':
         vscode.commands.executeCommand('workbench.action.openSettings', 'gmsh');
         break;
@@ -406,6 +411,7 @@ export class GmshPreviewPanel {
   <div class="bottom-bar">
     <div id="inspector-text" class="inspector-text">Hover over points, lines or surfaces</div>
     <div class="toolbar-group">
+      <span id="stats-grid" class="badge grid-badge" title="Grid Scale (Click to toggle Grid)">- units/grid</span>
       <span id="stats-nodes" class="badge">0 nodes</span>
       <span id="stats-elements" class="badge">0 elements</span>
     </div>
@@ -418,6 +424,7 @@ export class GmshPreviewPanel {
 
   public dispose() {
     GmshPreviewPanel.currentPanel = undefined;
+    GmshPreviewPanel.onGridInfoUpdate?.({ step: 0, size: 0, visible: false });
 
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);

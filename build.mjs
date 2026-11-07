@@ -18,10 +18,24 @@ async function build() {
 
   const syncToInstalled = () => {
     const home = process.env.USERPROFILE || process.env.HOME || '';
-    const targetDirs = [
-      path.join(home, '.antigravity-ide', 'extensions', 'local.gmsh-preview-0.2.0', 'dist'),
-      path.join(home, '.vscode', 'extensions', 'local.gmsh-preview-0.2.0', 'dist')
+    const baseDirs = [
+      path.join(home, '.antigravity-ide', 'extensions'),
+      path.join(home, '.vscode', 'extensions')
     ];
+
+    const targetDirs = [];
+    for (const base of baseDirs) {
+      if (fs.existsSync(base)) {
+        try {
+          const entries = fs.readdirSync(base);
+          for (const entry of entries) {
+            if (entry.includes('gmsh-preview')) {
+              targetDirs.push(path.join(base, entry, 'dist'));
+            }
+          }
+        } catch (_) {}
+      }
+    }
 
     for (const installedExtDist of targetDirs) {
       if (fs.existsSync(installedExtDist)) {

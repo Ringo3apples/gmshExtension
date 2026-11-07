@@ -1,4 +1,4 @@
-import { Viewer3D } from './viewer3d';
+import { Viewer3D, GridInfo } from './viewer3d';
 import { ExtensionMessage, WebviewMessage, MeshData } from '../types';
 
 declare function acquireVsCodeApi(): {
@@ -18,12 +18,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingOverlay = document.getElementById('loading-overlay')!;
   const inspectorText = document.getElementById('inspector-text')!;
 
+  const statsGrid = document.getElementById('stats-grid');
   const statsNodes = document.getElementById('stats-nodes')!;
   const statsElements = document.getElementById('stats-elements')!;
   const filenameBadge = document.getElementById('filename-badge')!;
 
   let currentMeshDimension = 2;
   let lastErrorLine: number | undefined;
+
+  const formatNum = (n: number) => parseFloat(n.toPrecision(6)).toString();
+  const updateGridDisplay = (info: GridInfo) => {
+    // 1. Bottom Inspector badge in Webview status bar
+    if (statsGrid) {
+      const stepStr = formatNum(info.step);
+      const unitStr = info.step === 1 ? 'unit' : 'units';
+      const label = `${stepStr} ${unitStr}/grid`;
+      statsGrid.textContent = info.visible ? label : `${label} [Off]`;
+      statsGrid.style.opacity = info.visible ? '1' : '0.5';
+      statsGrid.title = `Grid scale: ${stepStr} ${unitStr}/grid${info.visible ? ' (Click to toggle)' : ' (Off - Click to toggle)'}`;
+    }
+
+    // 2. Post to VS Code Status Bar
+    vscode.postMessage({
+      command: 'gridInfo',
+      step: info.step,
+      size: info.size,
+      visible: info.visible
+    });
+  };
 
   // Initialize Viewer3D
   const viewer = new Viewer3D({
@@ -43,8 +65,18 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (info.type === 'surface') {
         inspectorText.textContent = `Surface #${info.tag}`;
       }
+    },
+    onGridUpdate: (info) => {
+      updateGridDisplay(info);
     }
   });
+
+  updateGridDisplay(viewer.getGridInfo());
+  if (statsGrid) {
+    statsGrid.addEventListener('click', () => {
+      document.getElementById('toggle-grid')?.click();
+    });
+  }
 
   // Layer toggle buttons
   const setupToggle = (btnId: string, layer: 'points' | 'lines' | 'surfaces' | 'wireframe' | 'labels' | 'grid' | 'axes', initial: boolean = true) => {
