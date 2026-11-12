@@ -35,7 +35,9 @@ export class Viewer3D {
   private helpersGroup: THREE.Group;
   private highlightGroup: THREE.Group;
 
-  private gridHelper: THREE.GridHelper | null = null;
+  private gridLines: THREE.LineSegments | null = null;
+  private lastGridSnapIdxX: number = NaN;
+  private lastGridSnapIdxZ: number = NaN;
   private axesHelper: THREE.AxesHelper | null = null;
   private dirLight1!: THREE.DirectionalLight;
   private dirLight2!: THREE.DirectionalLight;
@@ -52,6 +54,8 @@ export class Viewer3D {
   private onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number] } | null) => void;
   private onGridUpdate?: (info: GridInfo) => void;
   private gridInfo: GridInfo = { size: 10, divisions: 20, step: 0.5, visible: true };
+  private readonly pointPixelDiameter: number = 10;
+  private readonly highlightPointPixelDiameter: number = 15;
 
   // Display toggles
   public showPoints: boolean = true;
@@ -308,11 +312,13 @@ export class Viewer3D {
     if (type === 'point') {
       const pt = this.currentMeshData.points.find(p => p.tag === tag);
       if (pt) {
-        const geom = new THREE.SphereGeometry(this.boundingSphere.radius * 0.035, 16, 16);
+        const geom = new THREE.SphereGeometry(0.5, 16, 12);
         const mat = new THREE.MeshBasicMaterial({ color: 0xff0055, depthTest: false });
         const mesh = new THREE.Mesh(geom, mat);
         mesh.position.set(pt.x, pt.y, pt.z);
+        mesh.userData = { isHighlightPoint: true };
         this.highlightGroup.add(mesh);
+        this.updatePointMarkerScales();
       }
     } else if (type === 'line') {
       const line = this.currentMeshData.lines.find(l => l.tag === tag);
@@ -354,6 +360,10 @@ export class Viewer3D {
     this.clearGroup(this.surfacesGroup);
     this.clearGroup(this.wireframeGroup);
     this.clearGroup(this.helpersGroup);
+    this.gridLines = null;
+    this.lastGridSnapIdxX = NaN;
+    this.lastGridSnapIdxZ = NaN;
+    this.axesHelper = null;
     this.clearHighlight();
 
     if (!data.nodes || data.nodes.length === 0) return;
@@ -364,14 +374,18 @@ export class Viewer3D {
     this.boundingBox.set(min, max);
     this.boundingBox.getBoundingSphere(this.boundingSphere);
 
-    const radius = Math.max(this.boundingSphere.radius, 0.5);
+    const radius = this.getEffectiveRadius();
     const center = this.boundingSphere.center;
+
+    // Adjust raycaster pick thresholds proportionally to model scale
+    this.raycaster.params.Points = { threshold: radius * 0.05 };
+    this.raycaster.params.Line = { threshold: radius * 0.03 };
 
     // 2. Setup Helpers (Grid and Axes)
     this.updateHelpers(center, radius);
 
-    // 3. Render Points as small spheres or custom meshes for high visibility
-    const pointGeom = new THREE.SphereGeometry(radius * 0.015, 12, 12);
+    // 3. Render Points as unit spheres (diameter = 1.0) scaled to constant screen pixels
+    const pointGeom = new THREE.SphereGeometry(0.5, 16, 12);
     const pointMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8 // Sky blue
     });
@@ -453,9 +467,19 @@ export class Viewer3D {
       this.wireframeGroup.add(wireframe);
     }
 
-    // 7. Update Labels (linked with Points and Lines visibility)
-    this.labelManager.updateLabels(data.points, data.lines, data.nodes, radius, this.showPoints, this.showLines);
-    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientHeight);
+    // 7. Update Labels (linked with Points, Lines, and Surfaces visibility)
+    this.labelManager.updateLabels(
+      data.points,
+      data.lines,
+      data.nodes,
+      radius,
+      this.showPoints,
+      this.showLines,
+      this.showSurfaces,
+      data.surfaceLabels || [],
+      data.labelMode || 'geo'
+    );
+    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
 
     // Apply visibility states
     this.pointsGroup.visible = this.showPoints;
@@ -466,6 +490,9 @@ export class Viewer3D {
     if (isFirstLoad) {
       this.setView('iso');
     }
+
+    this.updatePointMarkerScales();
+    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
   }
 
   public getGridInfo(): GridInfo {
@@ -495,7 +522,7 @@ export class Viewer3D {
 
   /**
    * Dynamically adapts the grid step (1, 2, 5 x 10^n) based on camera zoom / distance,
-   * snaps to coordinate axes at world origin, and ensures the grid fully covers the viewport.
+   * aligns main grid lines strictly to the world origin (0, 0, 0), and ensures full viewport coverage.
    */
   private updateAdaptiveGrid() {
     if (!this.showGrid) return;
@@ -531,35 +558,127 @@ export class Viewer3D {
 
     const size = step * divisions;
 
-    // Snap center to step multiples so ground grid lines stay locked to world coordinates (0, 0, 0)
-    const snapX = Math.round(target.x / step) * step;
-    const snapZ = Math.round(target.z / step) * step;
+    // Snap center to step multiples so grid lines remain locked to world origin (0, 0, 0)
+    const snapIdxX = Math.round(target.x / step);
+    const snapIdxZ = Math.round(target.z / step);
 
-    // Recreate grid only when scale step or division count changes
-    if (!this.gridHelper || this.gridInfo.step !== step || this.gridInfo.divisions !== divisions) {
-      if (this.gridHelper) {
-        this.helpersGroup.remove(this.gridHelper);
-        this.gridHelper.geometry.dispose();
-        if (Array.isArray(this.gridHelper.material)) {
-          this.gridHelper.material.forEach((m: any) => m.dispose());
+    const stepOrDivChanged = !this.gridLines || this.gridInfo.step !== step || this.gridInfo.divisions !== divisions;
+    const snapChanged = this.lastGridSnapIdxX !== snapIdxX || this.lastGridSnapIdxZ !== snapIdxZ;
+
+    if (stepOrDivChanged || snapChanged) {
+      this.rebuildOriginAlignedGrid(step, divisions, snapIdxX, snapIdxZ);
+      this.lastGridSnapIdxX = snapIdxX;
+      this.lastGridSnapIdxZ = snapIdxZ;
+
+      if (stepOrDivChanged) {
+        this.gridInfo = { size, divisions, step, visible: this.showGrid };
+        this.onGridUpdate?.(this.gridInfo);
+      }
+    }
+  }
+
+  /**
+   * Builds/updates grid geometry where origin lines (world x=0, z=0) and major intervals (every 5 cells)
+   * are anchored to (0, 0, 0) regardless of camera panning.
+   */
+  private rebuildOriginAlignedGrid(step: number, divisions: number, snapIdxX: number, snapIdxZ: number) {
+    const halfDiv = divisions / 2;
+    const halfSize = halfDiv * step;
+    const lineCount = (divisions + 1) * 2;
+    const vertexCount = lineCount * 2;
+
+    const colorOrigin = new THREE.Color(0x64748b); // Origin axes (x=0, z=0)
+    const colorMajor = new THREE.Color(0x334155);  // Main grid lines every 5 steps from origin
+    const colorMinor = new THREE.Color(0x1e293b);  // Sub grid lines
+
+    const needsNewMesh = !this.gridLines || this.gridInfo.divisions !== divisions;
+
+    let posArr: Float32Array;
+    let colArr: Float32Array;
+
+    if (needsNewMesh) {
+      if (this.gridLines) {
+        this.helpersGroup.remove(this.gridLines);
+        this.gridLines.geometry.dispose();
+        if (Array.isArray(this.gridLines.material)) {
+          this.gridLines.material.forEach((m: any) => m.dispose());
         } else {
-          this.gridHelper.material.dispose();
+          this.gridLines.material.dispose();
         }
       }
 
-      this.gridHelper = new THREE.GridHelper(size, divisions, 0x475569, 0x1e293b);
-      this.gridHelper.position.set(snapX, 0, snapZ);
-      this.gridHelper.visible = this.showGrid;
-      this.helpersGroup.add(this.gridHelper);
+      posArr = new Float32Array(vertexCount * 3);
+      colArr = new Float32Array(vertexCount * 3);
 
-      this.gridInfo = { size, divisions, step, visible: this.showGrid };
-      this.onGridUpdate?.(this.gridInfo);
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+      geom.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+
+      const mat = new THREE.LineBasicMaterial({ vertexColors: true });
+      this.gridLines = new THREE.LineSegments(geom, mat);
+      this.gridLines.frustumCulled = false;
+      this.gridLines.visible = this.showGrid;
+      this.helpersGroup.add(this.gridLines);
     } else {
-      // Reposition seamlessly as camera pans
-      if (this.gridHelper.position.x !== snapX || this.gridHelper.position.z !== snapZ) {
-        this.gridHelper.position.set(snapX, 0, snapZ);
-      }
+      const posAttr = this.gridLines!.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const colAttr = this.gridLines!.geometry.getAttribute('color') as THREE.BufferAttribute;
+      posArr = posAttr.array as Float32Array;
+      colArr = colAttr.array as Float32Array;
     }
+
+    let offset = 0;
+
+    // Lines parallel to Z axis (varying X)
+    for (let i = -halfDiv; i <= halfDiv; i++) {
+      const localX = i * step;
+      const worldIdxX = snapIdxX + i;
+      const c = worldIdxX === 0 ? colorOrigin : (worldIdxX % 5 === 0 ? colorMajor : colorMinor);
+
+      posArr[offset] = localX;
+      posArr[offset + 1] = 0;
+      posArr[offset + 2] = -halfSize;
+      colArr[offset] = c.r;
+      colArr[offset + 1] = c.g;
+      colArr[offset + 2] = c.b;
+
+      posArr[offset + 3] = localX;
+      posArr[offset + 4] = 0;
+      posArr[offset + 5] = halfSize;
+      colArr[offset + 3] = c.r;
+      colArr[offset + 4] = c.g;
+      colArr[offset + 5] = c.b;
+
+      offset += 6;
+    }
+
+    // Lines parallel to X axis (varying Z)
+    for (let i = -halfDiv; i <= halfDiv; i++) {
+      const localZ = i * step;
+      const worldIdxZ = snapIdxZ + i;
+      const c = worldIdxZ === 0 ? colorOrigin : (worldIdxZ % 5 === 0 ? colorMajor : colorMinor);
+
+      posArr[offset] = -halfSize;
+      posArr[offset + 1] = 0;
+      posArr[offset + 2] = localZ;
+      colArr[offset] = c.r;
+      colArr[offset + 1] = c.g;
+      colArr[offset + 2] = c.b;
+
+      posArr[offset + 3] = halfSize;
+      posArr[offset + 4] = 0;
+      posArr[offset + 5] = localZ;
+      colArr[offset + 3] = c.r;
+      colArr[offset + 4] = c.g;
+      colArr[offset + 5] = c.b;
+
+      offset += 6;
+    }
+
+    const geom = this.gridLines!.geometry;
+    (geom.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    (geom.getAttribute('color') as THREE.BufferAttribute).needsUpdate = true;
+
+    this.gridLines!.position.set(snapIdxX * step, 0, snapIdxZ * step);
   }
 
   private updateHelpers(_center: THREE.Vector3, radius: number) {
@@ -573,52 +692,88 @@ export class Viewer3D {
 
     // Grid and Axes visibility linked together
     this.helpersGroup.visible = this.showGrid;
-    if (this.gridHelper) this.gridHelper.visible = this.showGrid;
+    if (this.gridLines) this.gridLines.visible = this.showGrid;
     this.axesHelper.visible = this.showGrid;
+  }
+
+  private getEffectiveRadius(): number {
+    // Only fallback to 1.0 for degenerate zero-size geometry (e.g., a single point)
+    return this.boundingSphere.radius > 1e-7 ? this.boundingSphere.radius : 1.0;
+  }
+
+  private updateClippingPlanes() {
+    const radius = this.getEffectiveRadius();
+    if (this.currentCamera instanceof THREE.PerspectiveCamera) {
+      const dist = this.perspectiveCamera.position.distanceTo(this.controls.target);
+      const safeDist = Math.max(dist, 1e-7);
+      const desiredNear = Math.max(Math.min(safeDist * 0.002, radius * 0.002), 1e-7);
+      const desiredFar = Math.max(safeDist * 200, radius * 500, 100);
+
+      if (
+        Math.abs(this.perspectiveCamera.near - desiredNear) > desiredNear * 0.1 ||
+        Math.abs(this.perspectiveCamera.far - desiredFar) > desiredFar * 0.1
+      ) {
+        this.perspectiveCamera.near = desiredNear;
+        this.perspectiveCamera.far = desiredFar;
+        this.perspectiveCamera.updateProjectionMatrix();
+      }
+    } else if (this.currentCamera instanceof THREE.OrthographicCamera) {
+      const dist = this.orthographicCamera.position.distanceTo(this.controls.target);
+      const extent = Math.max(dist, radius) * 50;
+      if (
+        Math.abs(this.orthographicCamera.near - (-extent)) > extent * 0.1 ||
+        Math.abs(this.orthographicCamera.far - extent) > extent * 0.1
+      ) {
+        this.orthographicCamera.near = -extent;
+        this.orthographicCamera.far = extent;
+        this.orthographicCamera.updateProjectionMatrix();
+      }
+    }
   }
 
   public resetView() {
     if (!this.currentMeshData) return;
     const center = this.boundingSphere.center;
-    const radius = Math.max(this.boundingSphere.radius, 0.5);
+    const radius = this.getEffectiveRadius();
 
     // Keep current camera view angle relative to target
     const currentDir = new THREE.Vector3().subVectors(this.currentCamera.position, this.controls.target);
-    if (currentDir.lengthSq() < 1e-4) {
+    if (currentDir.lengthSq() < 1e-12) {
       currentDir.set(1, 0.85, 1);
     }
     currentDir.normalize();
 
-    // Fit distance based on camera field of view
     const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
     const fovRad = (this.perspectiveCamera.fov * Math.PI) / 180;
     const halfFovV = fovRad / 2;
     const halfFovH = Math.atan(Math.tan(halfFovV) * aspect);
     const minHalfFov = Math.min(halfFovV, halfFovH);
-    const dist = (radius / Math.sin(minHalfFov)) * 1.15;
+    const fallbackDist = (radius / Math.sin(minHalfFov)) * 1.15;
 
     this.controls.target.copy(center);
 
+    const box = this.boundingBox;
+    const corners: THREE.Vector3[] = [
+      new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+      new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+      new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+      new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+      new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+      new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+      new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+      new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+    ];
+
+    const margin = 1.15;
+
     if (this.isOrtho) {
       // 1. Position camera along current direction and aim at center
-      this.orthographicCamera.position.copy(center).addScaledVector(currentDir, dist);
+      this.orthographicCamera.position.copy(center).addScaledVector(currentDir, fallbackDist);
       this.orthographicCamera.lookAt(center);
       this.orthographicCamera.updateMatrixWorld();
 
       // 2. Project 3D bounding box corners into camera's local space to find oriented screen extents
       const invMat = this.orthographicCamera.matrixWorldInverse;
-      const box = this.boundingBox;
-      const corners: THREE.Vector3[] = [
-        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
-        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
-        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
-        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
-        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
-        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
-        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
-        new THREE.Vector3(box.max.x, box.max.y, box.max.z),
-      ];
-
       let maxExtentX = 0;
       let maxExtentY = 0;
       for (const corner of corners) {
@@ -627,12 +782,11 @@ export class Viewer3D {
         maxExtentY = Math.max(maxExtentY, Math.abs(p.y));
       }
 
-      // Safeguard for 2D/1D geometries viewed edge-on
-      if (maxExtentX < 1e-4) maxExtentX = Math.max(maxExtentY, radius * 0.1, 0.1);
-      if (maxExtentY < 1e-4) maxExtentY = Math.max(maxExtentX, radius * 0.1, 0.1);
+      // Safeguard for degenerate/edge-on geometries scaled proportionally to radius
+      const minExtent = Math.max(radius * 0.01, 1e-7);
+      if (maxExtentX < minExtent) maxExtentX = Math.max(maxExtentY, radius * 0.1, 1e-6);
+      if (maxExtentY < minExtent) maxExtentY = Math.max(maxExtentX, radius * 0.1, 1e-6);
 
-      // 15% margin around the bounding box
-      const margin = 1.15;
       const reqHalfW = maxExtentX * margin;
       const reqHalfH = maxExtentY * margin;
 
@@ -640,10 +794,8 @@ export class Viewer3D {
       let halfH = reqHalfH;
 
       if (reqHalfW / reqHalfH > aspect) {
-        // Horizontally constrained (e.g. wide geometry or narrow viewport)
         halfH = reqHalfW / aspect;
       } else {
-        // Vertically constrained
         halfW = reqHalfH * aspect;
       }
 
@@ -653,13 +805,37 @@ export class Viewer3D {
       this.orthographicCamera.right = halfW;
       this.orthographicCamera.top = halfH;
       this.orthographicCamera.bottom = -halfH;
-      this.orthographicCamera.near = Math.max(0.01, dist - radius * 5);
-      this.orthographicCamera.far = dist + radius * 5;
+      const extent = Math.max(fallbackDist, radius) * 50;
+      this.orthographicCamera.near = -extent;
+      this.orthographicCamera.far = extent;
       this.orthographicCamera.updateProjectionMatrix();
     } else {
-      this.perspectiveCamera.position.copy(center).addScaledVector(currentDir, dist);
-      this.perspectiveCamera.near = Math.max(radius * 0.001, 0.01);
-      this.perspectiveCamera.far = Math.max(radius * 100, 1000);
+      // Fit Perspective camera tightly using oriented bounding box corners
+      const tempDist = radius * 2;
+      this.perspectiveCamera.position.copy(center).addScaledVector(currentDir, tempDist);
+      this.perspectiveCamera.lookAt(center);
+      this.perspectiveCamera.updateMatrixWorld();
+
+      const invMat = this.perspectiveCamera.matrixWorldInverse;
+      const tanHalfV = Math.tan(halfFovV);
+      const tanHalfH = tanHalfV * aspect;
+
+      let boxFitDist = 0;
+      for (const c of corners) {
+        const p = c.clone().applyMatrix4(invMat);
+        const zFromCenter = p.z + tempDist;
+        const reqZ = Math.max(
+          (Math.abs(p.x) * margin) / tanHalfH,
+          (Math.abs(p.y) * margin) / tanHalfV
+        );
+        boxFitDist = Math.max(boxFitDist, zFromCenter + reqZ);
+      }
+
+      const fitDist = boxFitDist > 1e-7 ? boxFitDist : fallbackDist;
+      this.perspectiveCamera.position.copy(center).addScaledVector(currentDir, fitDist);
+      this.perspectiveCamera.lookAt(center);
+      this.perspectiveCamera.near = Math.max(Math.min(fitDist * 0.002, radius * 0.002), 1e-7);
+      this.perspectiveCamera.far = Math.max(fitDist * 200, radius * 500, 100);
       this.perspectiveCamera.updateProjectionMatrix();
     }
 
@@ -669,7 +845,7 @@ export class Viewer3D {
   public setView(view: 'top' | 'front' | 'side' | 'iso') {
     if (!this.currentMeshData) return;
     const center = this.boundingSphere.center;
-    const radius = Math.max(this.boundingSphere.radius, 0.5);
+    const radius = this.getEffectiveRadius();
     const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
     const fovRad = (this.perspectiveCamera.fov * Math.PI) / 180;
     const halfFovV = fovRad / 2;
@@ -699,8 +875,8 @@ export class Viewer3D {
 
   public toggleProjection() {
     this.isOrtho = !this.isOrtho;
-    const aspect = this.container.clientWidth / this.container.clientHeight;
-    const radius = Math.max(this.boundingSphere.radius, 0.5);
+    const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
+    const radius = this.getEffectiveRadius();
 
     if (this.isOrtho) {
       // Perspective -> Orthographic transition: maintain apparent size at target
@@ -715,8 +891,9 @@ export class Viewer3D {
       this.orthographicCamera.right = halfWidth;
       this.orthographicCamera.top = halfHeight;
       this.orthographicCamera.bottom = -halfHeight;
-      this.orthographicCamera.near = Math.max(0.01, dist - radius * 5);
-      this.orthographicCamera.far = dist + radius * 5;
+      const extent = Math.max(dist, radius) * 50;
+      this.orthographicCamera.near = -extent;
+      this.orthographicCamera.far = extent;
       this.orthographicCamera.updateProjectionMatrix();
 
       this.currentCamera = this.orthographicCamera;
@@ -727,12 +904,12 @@ export class Viewer3D {
       const targetDist = halfHeight / Math.tan(THREE.MathUtils.degToRad(this.perspectiveCamera.fov / 2));
 
       const dir = new THREE.Vector3().subVectors(this.orthographicCamera.position, this.controls.target).normalize();
-      if (dir.lengthSq() < 1e-4) dir.set(1, 0.85, 1).normalize();
+      if (dir.lengthSq() < 1e-12) dir.set(1, 0.85, 1).normalize();
 
       this.perspectiveCamera.position.copy(this.controls.target).addScaledVector(dir, targetDist);
       this.perspectiveCamera.rotation.copy(this.orthographicCamera.rotation);
-      this.perspectiveCamera.near = Math.max(radius * 0.001, 0.01);
-      this.perspectiveCamera.far = Math.max(radius * 100, 1000);
+      this.perspectiveCamera.near = Math.max(Math.min(targetDist * 0.002, radius * 0.002), 1e-7);
+      this.perspectiveCamera.far = Math.max(targetDist * 200, radius * 500, 100);
       this.perspectiveCamera.updateProjectionMatrix();
 
       this.currentCamera = this.perspectiveCamera;
@@ -747,6 +924,7 @@ export class Viewer3D {
         this.showPoints = enabled;
         this.pointsGroup.visible = enabled;
         this.labelManager.setPointLabelsVisible(enabled);
+        if (enabled) this.updatePointMarkerScales();
         break;
       case 'lines':
         this.showLines = enabled;
@@ -756,6 +934,7 @@ export class Viewer3D {
       case 'surfaces':
         this.showSurfaces = enabled;
         this.surfacesGroup.visible = enabled;
+        this.labelManager.setSurfaceLabelsVisible(enabled);
         break;
       case 'wireframe':
         this.showWireframe = enabled;
@@ -772,7 +951,7 @@ export class Viewer3D {
         this.gridInfo.visible = enabled;
         this.onGridUpdate?.(this.gridInfo);
         this.helpersGroup.visible = enabled;
-        if (this.gridHelper) this.gridHelper.visible = enabled;
+        if (this.gridLines) this.gridLines.visible = enabled;
         if (this.axesHelper) this.axesHelper.visible = enabled;
         if (enabled) this.updateAdaptiveGrid();
         break;
@@ -814,12 +993,76 @@ export class Viewer3D {
     this.dirLight2.target.position.copy(target);
   }
 
+  /**
+   * Keep point marker spheres at a constant screen-space diameter (10px) regardless of camera zoom
+   */
+  private updatePointMarkerScales() {
+    const viewportHeight = this.renderer.domElement.clientHeight;
+    if (viewportHeight <= 0) return;
+
+    const hasPoints = this.showPoints && this.pointsGroup.children.length > 0;
+    const hasHighlight = this.highlightGroup.children.length > 0;
+    if (!hasPoints && !hasHighlight) return;
+
+    const cam = this.currentCamera;
+    if (cam instanceof THREE.PerspectiveCamera) {
+      const fovFactor = (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / viewportHeight;
+      const camPos = cam.position;
+
+      if (hasPoints) {
+        const factor = this.pointPixelDiameter * fovFactor;
+        const children = this.pointsGroup.children;
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          const dist = camPos.distanceTo(child.position);
+          child.scale.setScalar(Math.max(dist * factor, 1e-9));
+        }
+      }
+
+      if (hasHighlight) {
+        const factor = this.highlightPointPixelDiameter * fovFactor;
+        const children = this.highlightGroup.children;
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          if (child.userData.isHighlightPoint) {
+            const dist = camPos.distanceTo(child.position);
+            child.scale.setScalar(Math.max(dist * factor, 1e-9));
+          }
+        }
+      }
+    } else if (cam instanceof THREE.OrthographicCamera) {
+      const frustumHeight = (cam.top - cam.bottom) / cam.zoom;
+      const unitPerPx = frustumHeight / viewportHeight;
+
+      if (hasPoints) {
+        const diameter = Math.max(this.pointPixelDiameter * unitPerPx, 1e-9);
+        const children = this.pointsGroup.children;
+        for (let i = 0; i < children.length; i++) {
+          children[i].scale.setScalar(diameter);
+        }
+      }
+
+      if (hasHighlight) {
+        const diameter = Math.max(this.highlightPointPixelDiameter * unitPerPx, 1e-9);
+        const children = this.highlightGroup.children;
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          if (child.userData.isHighlightPoint) {
+            child.scale.setScalar(diameter);
+          }
+        }
+      }
+    }
+  }
+
   private animate = () => {
     requestAnimationFrame(this.animate);
     this.controls.update();
+    this.updateClippingPlanes();
     this.updateLights();
     this.updateAdaptiveGrid();
-    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientHeight);
+    this.updatePointMarkerScales();
+    this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
     this.renderer.render(this.scene, this.currentCamera);
   };
 }

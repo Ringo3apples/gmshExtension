@@ -159,70 +159,6 @@ body {
   box-shadow: 0 2px 8px rgba(56, 189, 248, 0.4);
 }
 
-/* Dropdown Menu for Export */
-.dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.dropdown-content {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
-  background: var(--surface-color);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-  min-width: 140px;
-  z-index: 100;
-  overflow: hidden;
-}
-
-.dropdown-content button {
-  width: 100%;
-  text-align: left;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 12px;
-  cursor: pointer;
-  display: block;
-}
-
-.dropdown-content button:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.dropdown:hover .dropdown-content {
-  display: block;
-}
-
-/* Error Notification Banner */
-.error-banner {
-  position: absolute;
-  top: 70px;
-  left: 12px;
-  right: 12px;
-  z-index: 20;
-  background: var(--error-bg);
-  border: 1px solid var(--error-border);
-  border-radius: 8px;
-  padding: 8px 14px;
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  color: #fff;
-  font-size: 12px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
-  cursor: pointer;
-  animation: slideDown 0.2s ease-out;
-}
-
 .warning-banner {
   position: absolute;
   top: 70px;
@@ -284,30 +220,28 @@ body {
   border-color: #38bdf8 !important;
 }
 
-/* Loading Overlay */
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(15, 23, 42, 0.6);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 30;
-  backdrop-filter: blur(3px);
+/* Status Badge in Bottom Bar */
+.status-badge {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(56, 189, 248, 0.2);
-  border-top-color: var(--accent-color);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.status-badge.running {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  cursor: pointer;
+}
+
+.status-badge.error:hover {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: #f87171;
 }

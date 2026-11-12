@@ -131,6 +131,24 @@ export class GmshRunner {
         const mshContent = await fs.promises.readFile(tempMshPath, 'utf-8');
         const meshData = parseMsh(mshContent);
 
+        // Write .msh file alongside the source .geo file on successful execution
+        const isGeoFile =
+          Boolean(originalFilePath) &&
+          path.extname(originalFilePath).toLowerCase() === '.geo' &&
+          fs.existsSync(path.dirname(originalFilePath));
+
+        if (isGeoFile && !parsedError && execResult.code === 0) {
+          const targetMshPath = path.join(
+            path.dirname(originalFilePath),
+            `${path.basename(originalFilePath, path.extname(originalFilePath))}.msh`
+          );
+          try {
+            await fs.promises.copyFile(tempMshPath, targetMshPath);
+          } catch (copyErr) {
+            console.warn('Failed to write .msh output file:', copyErr);
+          }
+        }
+
         this.cleanupFile(tempGeoPath);
         this.cleanupFile(tempMshPath);
 
@@ -163,55 +181,6 @@ export class GmshRunner {
         error: `Unexpected error: ${err?.message || err}`,
         durationMs: Date.now() - startTime
       };
-    }
-  }
-
-  /**
-   * Export to file format (STL, OBJ, or MSH).
-   */
-  public async exportFile(
-    geoContent: string,
-    originalFilePath: string,
-    outputPath: string,
-    format: 'stl' | 'obj' | 'msh',
-    executablePath: string = 'gmsh',
-    meshDimension: number = 2
-  ): Promise<{ success: boolean; error?: string }> {
-    const tempGeoPath = path.join(this.tempDir, `export_${Date.now()}.geo`);
-    const workingDir = originalFilePath ? path.dirname(originalFilePath) : this.tempDir;
-
-    // Resolve actual executable path
-    const detectResult = await GmshLocator.findGmsh(executablePath);
-    const resolvedExecPath = detectResult.found ? detectResult.path : executablePath;
-
-    try {
-      await fs.promises.writeFile(tempGeoPath, geoContent, 'utf-8');
-
-      const args: string[] = [
-        tempGeoPath,
-        '-format', format,
-        '-o', outputPath
-      ];
-
-      if (meshDimension >= 0 && meshDimension <= 3) {
-        args.push(`-${meshDimension}`);
-      }
-
-      return new Promise((resolve) => {
-        cp.execFile(resolvedExecPath, args, { cwd: workingDir }, (err, stdout, stderr) => {
-          this.cleanupFile(tempGeoPath);
-          if (err || !fs.existsSync(outputPath)) {
-            resolve({
-              success: false,
-              error: stderr || stdout || err?.message || 'Export failed'
-            });
-          } else {
-            resolve({ success: true });
-          }
-        });
-      });
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Export failed' };
     }
   }
 

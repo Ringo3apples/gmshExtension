@@ -2,6 +2,25 @@
 
 All notable changes to the **Gmsh (Language Support & 3D Preview)** extension will be documented in this file.
 
+## [0.4.0] - 2026-11-11
+### Added
+- **Gmsh Mode Toggle (`Gmsh` & `Mesh` Coupling)**:
+  - Replaced toolbar `Grid` toggle with `Gmsh` toggle (grid visibility remains toggleable via the status bar badge).
+  - **Gmsh OFF**: Skips running Gmsh CLI on `.geo` edits; previews all `.geo` Points, Lines, true 3D Circles, Splines, Curve Loops, and Surfaces (including holes) with `P#` / `L#` ID labels.
+  - **Gmsh ON**: Runs Gmsh on `.geo` changes, displays `.msh` Points/Curves/Surfaces, and shows **Physical Names** as entity labels.
+  - Turning `Mesh` ON automatically turns `Gmsh` ON; turning `Gmsh` OFF automatically turns `Mesh` OFF.
+- **Automatic `.msh` Output**: Writes `<filename>.msh` in the same folder as the source `.geo` file upon successful Gmsh execution (replacing the toolbar Export menu).
+- **Fixed 10px Point Markers**: Point markers (and 15px selection highlights) stay at a constant screen pixel diameter regardless of zoom.
+- **Borderless Smart Labels**: Removed label boxes/borders; Point labels sit cleanly above markers, and Line labels dynamically track the center of the visible segment on screen (right of vertical lines, below horizontal lines).
+- **Origin-Aligned Infinite Adaptive Grid & `mm/div` Scale**: Grid lines adapt across `1, 2, 5 × 10^n`, cover the full viewport, keep origin `(0, 0, 0)` and 5-step major lines anchored in world space, and display grid spacing in `mm/div` (1000× scaled) on the status bar.
+
+### Changed
+- **Non-Blocking Status Bar Indicators**: Removed full-screen loading blur and top error banner; Gmsh running state and clickable error messages are shown cleanly in the status bar.
+
+### Fixed
+- **Micro-Scale Model Fit & Zoom**: Removed hardcoded `0.5` minimum radius and `0.01` near-clip limits; added dynamic clipping planes and bounding-box perspective fitting for millimeter/micrometer-scale models.
+- **Single-Run Debounce Guard**: Ignored metadata-only document change events (e.g. Auto Save) and duplicate content runs so editing triggers Gmsh only once.
+
 ## [0.3.0] - 2026-11-08
 ### Added
 - **Screen-Space Constant Size Labels**: Point (`P#`) and line (`L#`) labels maintain a crisp, constant pixel height regardless of camera zoom level or perspective distance.

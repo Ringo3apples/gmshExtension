@@ -43,7 +43,7 @@
 - **Adaptive Ground Grid & Scale Bar**: Smart grid stepping (`1, 2, 5 × 10^n`) ensures 1 cell corresponds directly to natural model units (e.g. 1 unit in `Box`). Scale indicator overlay directly on the 3D viewport, preview inspector, and status bar.
 - **Display Toggles**: Easily toggle points, boundary curves, surface faces, mesh wireframe, labels, ground grid, and coordinate axes.
 - **Multi-Angle Camera**: Instant presets for Top, Front, Side, Isometric, and Fit-to-Screen views, plus Perspective / Orthographic projection toggle.
-- **Export Options**: Export the current model to **STL (`.stl`)**, **Wavefront OBJ (`.obj`)**, or **Gmsh Mesh (`.msh`)** directly from the preview toolbar.
+- **Automatic `.msh` Output**: Automatically writes the generated `.msh` file alongside your `.geo` file (same directory and base filename) whenever Gmsh succeeds.
 - **Built-in Fallback Parser**: Even if Gmsh CLI is not yet installed or has syntax errors, an internal fallback parser keeps basic geometry visible.
 
 ---

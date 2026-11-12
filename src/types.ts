@@ -4,11 +4,21 @@ export interface GeometricPoint {
   x: number;
   y: number;
   z: number;
+  physicalName?: string;
 }
 
 export interface GeometricLine {
   tag: number;
   nodeIndices: number[]; // pairs of node indices [n1, n2, n2, n3, ...]
+  physicalName?: string;
+}
+
+export interface PhysicalSurfaceLabel {
+  tag: number;
+  physicalName: string;
+  x: number;
+  y: number;
+  z: number;
 }
 
 export interface GeometricSurface {
@@ -37,10 +47,12 @@ export interface MeshData {
   lines: GeometricLine[];
   surfaceTriangles: number[]; // Flat node index array for all surface triangles
   surfaceTags: number[]; // Surface entity tag corresponding to each triangle
+  surfaceLabels?: PhysicalSurfaceLabel[];
   volumeTriangles?: number[]; // Triangles on volume boundary or tetrahedra wireframe
   bbox: BoundingBox;
   stats: MeshStats;
   isFallback?: boolean;
+  labelMode?: 'geo' | 'physical';
 }
 
 export interface GmshResult {
@@ -74,13 +86,13 @@ export interface ExtensionConfig {
 export type WebviewMessage =
   | { command: 'selectEntity'; entityType: 'point' | 'line' | 'surface'; tag: number }
   | { command: 'jumpToLine'; line?: number }
-  | { command: 'export'; format: 'stl' | 'obj' | 'msh'; dimension?: number }
   | { command: 'requestRemesh'; dimension: number }
   | { command: 'openSettings' }
   | { command: 'autoDetect' }
   | { command: 'browseExecutable' }
   | { command: 'ready' }
-  | { command: 'gridInfo'; step: number; size: number; visible: boolean };
+  | { command: 'gridInfo'; step: number; size: number; visible: boolean }
+  | { command: 'setGmshEnabled'; enabled: boolean };
 
 export type ExtensionMessage =
   | { command: 'updateMesh'; data: MeshData; sourceFile: string }

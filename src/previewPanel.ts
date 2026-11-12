@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { GmshRunner } from './gmshRunner';
+import { parseGeoFallback } from './geoParserFallback';
+import { parseMsh } from './mshParser';
 import { ExtensionConfig, WebviewMessage } from './types';
 
 export class GmshPreviewPanel {
   public static currentPanel: GmshPreviewPanel | undefined;
   public static readonly viewType = 'gmshPreview';
   public static onGridInfoUpdate?: (info: { step: number; size: number; visible: boolean }) => void;
+  public static onStatusUpdate?: (status: { state: 'idle' | 'running' | 'error'; message?: string; line?: number }) => void;
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
@@ -15,8 +18,12 @@ export class GmshPreviewPanel {
 
   private _activeDocument: vscode.TextDocument | null = null;
   private _debounceTimer: NodeJS.Timeout | null = null;
-  private _currentDimension: number = 2;
   private _isReady: boolean = false;
+  private _gmshEnabled: boolean = true;
+  private _lastRenderedUri: string | null = null;
+  private _lastRenderedContent: string | null = null;
+  private _lastRenderedGmshMode: boolean | null = null;
+  private _runId: number = 0;
 
   public static createOrShow(extensionUri: vscode.Uri, document?: vscode.TextDocument) {
     const column = vscode.ViewColumn.Beside;
@@ -54,9 +61,6 @@ export class GmshPreviewPanel {
     this._extensionUri = extensionUri;
     this._gmshRunner = new GmshRunner();
 
-    const config = this.getConfig();
-    this._currentDimension = config.meshDimension;
-
     // Set webview HTML content
     this._panel.webview.html = this._getHtmlForWebview(this._panel.webview);
 
@@ -73,10 +77,14 @@ export class GmshPreviewPanel {
       this._disposables
     );
 
-    // Watch for active document changes
+    // Watch for active document changes (ignore metadata-only events such as auto-save dirty state toggles)
     vscode.workspace.onDidChangeTextDocument(
       (e) => {
-        if (this._activeDocument && e.document.uri.toString() === this._activeDocument.uri.toString()) {
+        if (
+          this._activeDocument &&
+          e.document.uri.toString() === this._activeDocument.uri.toString() &&
+          e.contentChanges.length > 0
+        ) {
           this.triggerUpdate();
         }
       },
@@ -139,24 +147,80 @@ export class GmshPreviewPanel {
   public triggerUpdate() {
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);
+      this._debounceTimer = null;
     }
     const delay = this.getConfig().debounceDelay;
     this._debounceTimer = setTimeout(() => {
+      this._debounceTimer = null;
       this.updatePreviewImmediate();
     }, delay);
   }
 
-  public async updatePreviewImmediate() {
+  public async updatePreviewImmediate(force: boolean = false) {
     if (!this._activeDocument) return;
+
+    if (this._debounceTimer) {
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = null;
+    }
 
     const content = this._activeDocument.getText();
     const filePath = this._activeDocument.fileName;
+    const docUri = this._activeDocument.uri.toString();
+    const docExt = path.extname(filePath).toLowerCase();
+
+    // Avoid redundant execution when URI, content, and Gmsh mode are unchanged
+    if (
+      !force &&
+      docUri === this._lastRenderedUri &&
+      content === this._lastRenderedContent &&
+      this._gmshEnabled === this._lastRenderedGmshMode
+    ) {
+      return;
+    }
+
+    this._lastRenderedUri = docUri;
+    this._lastRenderedContent = content;
+    this._lastRenderedGmshMode = this._gmshEnabled;
+
+    const currentRunId = ++this._runId;
+
+    // Directly parse .msh files without running Gmsh
+    if (docExt === '.msh') {
+      const mshData = parseMsh(content);
+      mshData.labelMode = 'physical';
+      this._panel.webview.postMessage({ command: 'setLoading', loading: false });
+      this._panel.webview.postMessage({ command: 'clearError' });
+      this._panel.webview.postMessage({
+        command: 'updateMesh',
+        data: mshData,
+        sourceFile: path.basename(filePath)
+      });
+      GmshPreviewPanel.onStatusUpdate?.({ state: 'idle' });
+      return;
+    }
+
+    // When Gmsh toggle is OFF: do NOT run Gmsh CLI; parse .geo geometry directly with P#/L# labels
+    if (!this._gmshEnabled) {
+      const geoData = parseGeoFallback(content);
+      geoData.isFallback = false; // Intentional geometry mode: suppress missing-CLI warning
+      geoData.labelMode = 'geo';
+      this._panel.webview.postMessage({ command: 'setLoading', loading: false });
+      this._panel.webview.postMessage({ command: 'clearError' });
+      this._panel.webview.postMessage({
+        command: 'updateMesh',
+        data: geoData,
+        sourceFile: path.basename(filePath)
+      });
+      GmshPreviewPanel.onStatusUpdate?.({ state: 'idle' });
+      return;
+    }
+
     const config = this.getConfig();
 
     // 3D volumetric meshing removed: strictly use 2D surface meshing so all models display clean planar surfaces
-    this._currentDimension = 2;
-
     this._panel.webview.postMessage({ command: 'setLoading', loading: true });
+    GmshPreviewPanel.onStatusUpdate?.({ state: 'running' });
 
     const result = await this._gmshRunner.runGmsh(
       content,
@@ -165,7 +229,17 @@ export class GmshPreviewPanel {
       2
     );
 
+    // Discard stale results if a newer run has superseded this one (or Gmsh was toggled off)
+    if (currentRunId !== this._runId || !this._gmshEnabled) {
+      return;
+    }
+
+    this._panel.webview.postMessage({ command: 'setLoading', loading: false });
+
     if (result.data) {
+      if (!result.data.isFallback) {
+        result.data.labelMode = 'physical';
+      }
       this._panel.webview.postMessage({
         command: 'updateMesh',
         data: result.data,
@@ -179,8 +253,14 @@ export class GmshPreviewPanel {
         message: result.error,
         line: result.errorLine
       });
+      GmshPreviewPanel.onStatusUpdate?.({
+        state: 'error',
+        message: result.error,
+        line: result.errorLine
+      });
     } else {
       this._panel.webview.postMessage({ command: 'clearError' });
+      GmshPreviewPanel.onStatusUpdate?.({ state: 'idle' });
     }
   }
 
@@ -202,12 +282,12 @@ export class GmshPreviewPanel {
         break;
 
       case 'requestRemesh':
-        this._currentDimension = message.dimension;
-        this.updatePreviewImmediate();
+        this.updatePreviewImmediate(true);
         break;
 
-      case 'export':
-        this._handleExport(message.format, message.dimension ?? this._currentDimension);
+      case 'setGmshEnabled':
+        this._gmshEnabled = message.enabled;
+        this.updatePreviewImmediate(true);
         break;
 
       case 'gridInfo':
@@ -226,6 +306,10 @@ export class GmshPreviewPanel {
         vscode.commands.executeCommand('gmshPreview.browseExecutable');
         break;
     }
+  }
+
+  public async jumpToLine(lineNumber?: number) {
+    return this._jumpToLineInEditor(lineNumber);
   }
 
   private async _jumpToLineInEditor(lineNumber?: number) {
@@ -288,45 +372,6 @@ export class GmshPreviewPanel {
     }
   }
 
-  private async _handleExport(format: 'stl' | 'obj' | 'msh', dimension: number) {
-    if (!this._activeDocument) return;
-
-    const defaultFilename = path.basename(this._activeDocument.fileName, path.extname(this._activeDocument.fileName)) + `.${format}`;
-    const uri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(path.join(path.dirname(this._activeDocument.fileName), defaultFilename)),
-      filters: {
-        [format.toUpperCase()]: [format]
-      }
-    });
-
-    if (!uri) return;
-
-    vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: `Exporting to ${format.toUpperCase()}...`,
-        cancellable: false
-      },
-      async () => {
-        const config = this.getConfig();
-        const res = await this._gmshRunner.exportFile(
-          this._activeDocument!.getText(),
-          this._activeDocument!.fileName,
-          uri.fsPath,
-          format,
-          config.executablePath,
-          dimension
-        );
-
-        if (res.success) {
-          vscode.window.showInformationMessage(`Successfully exported to ${path.basename(uri.fsPath)}`);
-        } else {
-          vscode.window.showErrorMessage(`Export failed: ${res.error}`);
-        }
-      }
-    );
-  }
-
   private _getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'preview.bundle.js')).with({ query: `t=${Date.now()}` });
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'styles.css')).with({ query: `t=${Date.now()}` });
@@ -346,11 +391,6 @@ export class GmshPreviewPanel {
 <body>
   <!-- 3D Canvas Viewport -->
   <div id="viewport-container"></div>
-
-  <!-- Loading Overlay -->
-  <div id="loading-overlay" class="loading-overlay">
-    <div class="spinner"></div>
-  </div>
 
   <!-- Top Toolbar -->
   <div class="toolbar">
@@ -374,28 +414,14 @@ export class GmshPreviewPanel {
       <button id="toggle-lines" class="toggle-btn" title="Lines (L)">Lines</button>
       <button id="toggle-surfaces" class="toggle-btn" title="Surfaces (S)">Surfaces</button>
       <button id="toggle-wireframe" class="toggle-btn" title="Mesh Wireframe">Mesh</button>
-      <button id="toggle-labels" class="toggle-btn" title="Point & Line ID Labels">Labels</button>
-      <button id="toggle-grid" class="toggle-btn" title="Grid & Origin Axes (0,0,0)">Grid</button>
+      <button id="toggle-labels" class="toggle-btn" title="Entity & Physical Labels">Labels</button>
+      <button id="toggle-gmsh" class="toggle-btn" title="Run Gmsh & Show Physical Entities">Gmsh</button>
     </div>
 
-    <!-- Export & Settings -->
+    <!-- Settings -->
     <div class="toolbar-group">
-      <div class="dropdown">
-        <button class="btn" title="Export Model">Export ▾</button>
-        <div class="dropdown-content">
-          <button id="export-stl">Export STL (.stl)</button>
-          <button id="export-obj">Export OBJ (.obj)</button>
-          <button id="export-msh">Export Gmsh (.msh)</button>
-        </div>
-      </div>
       <button id="btn-settings" class="btn btn-icon" title="Configure Gmsh Path">⚙</button>
     </div>
-  </div>
-
-  <!-- Error Banner -->
-  <div id="error-banner" class="error-banner" title="Click to jump to line in code">
-    <span id="error-text">Syntax Error</span>
-    <span class="badge" style="background: rgba(0,0,0,0.3); color: #fff;">Jump to line ↗</span>
   </div>
 
   <!-- Warning Banner -->
@@ -411,7 +437,8 @@ export class GmshPreviewPanel {
   <div class="bottom-bar">
     <div id="inspector-text" class="inspector-text">Hover over points, lines or surfaces</div>
     <div class="toolbar-group">
-      <span id="stats-grid" class="badge grid-badge" title="Grid Scale (Click to toggle Grid)">- units/grid</span>
+      <span id="status-badge" class="badge status-badge" style="display: none;"></span>
+      <span id="stats-grid" class="badge grid-badge" title="Grid Scale (Click to toggle Grid)">- mm/div</span>
       <span id="stats-nodes" class="badge">0 nodes</span>
       <span id="stats-elements" class="badge">0 elements</span>
     </div>
@@ -425,6 +452,7 @@ export class GmshPreviewPanel {
   public dispose() {
     GmshPreviewPanel.currentPanel = undefined;
     GmshPreviewPanel.onGridInfoUpdate?.({ step: 0, size: 0, visible: false });
+    GmshPreviewPanel.onStatusUpdate?.({ state: 'idle' });
 
     if (this._debounceTimer) {
       clearTimeout(this._debounceTimer);

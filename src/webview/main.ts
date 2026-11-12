@@ -11,31 +11,28 @@ const vscode = acquireVsCodeApi();
 
 document.addEventListener('DOMContentLoaded', () => {
   const container = document.getElementById('viewport-container')!;
-  const errorBanner = document.getElementById('error-banner')!;
-  const errorText = document.getElementById('error-text')!;
   const warningBanner = document.getElementById('warning-banner')!;
   const warningText = document.getElementById('warning-text')!;
-  const loadingOverlay = document.getElementById('loading-overlay')!;
   const inspectorText = document.getElementById('inspector-text')!;
 
+  const statusBadge = document.getElementById('status-badge');
   const statsGrid = document.getElementById('stats-grid');
   const statsNodes = document.getElementById('stats-nodes')!;
   const statsElements = document.getElementById('stats-elements')!;
   const filenameBadge = document.getElementById('filename-badge')!;
 
-  let currentMeshDimension = 2;
   let lastErrorLine: number | undefined;
+  let hasError = false;
 
   const formatNum = (n: number) => parseFloat(n.toPrecision(6)).toString();
   const updateGridDisplay = (info: GridInfo) => {
     // 1. Bottom Inspector badge in Webview status bar
     if (statsGrid) {
-      const stepStr = formatNum(info.step);
-      const unitStr = info.step === 1 ? 'unit' : 'units';
-      const label = `${stepStr} ${unitStr}/grid`;
+      const stepMmStr = formatNum(info.step * 1000);
+      const label = `${stepMmStr} mm/div`;
       statsGrid.textContent = info.visible ? label : `${label} [Off]`;
       statsGrid.style.opacity = info.visible ? '1' : '0.5';
-      statsGrid.title = `Grid scale: ${stepStr} ${unitStr}/grid${info.visible ? ' (Click to toggle)' : ' (Off - Click to toggle)'}`;
+      statsGrid.title = `Grid scale: ${stepMmStr} mm/div${info.visible ? ' (Click to toggle)' : ' (Off - Click to toggle)'}`;
     }
 
     // 2. Post to VS Code Status Bar
@@ -74,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateGridDisplay(viewer.getGridInfo());
   if (statsGrid) {
     statsGrid.addEventListener('click', () => {
-      document.getElementById('toggle-grid')?.click();
+      viewer.toggleLayer('grid', !viewer.showGrid);
     });
   }
 
@@ -95,9 +92,43 @@ document.addEventListener('DOMContentLoaded', () => {
   setupToggle('toggle-points', 'points', true);
   setupToggle('toggle-lines', 'lines', true);
   setupToggle('toggle-surfaces', 'surfaces', true);
-  setupToggle('toggle-wireframe', 'wireframe', true);
   setupToggle('toggle-labels', 'labels', true);
-  setupToggle('toggle-grid', 'grid', true);
+
+  // Coupled Mesh & Gmsh buttons:
+  // - Mesh ON  -> forces Gmsh ON
+  // - Gmsh OFF -> forces Mesh OFF
+  const meshBtn = document.getElementById('toggle-wireframe');
+  const gmshBtn = document.getElementById('toggle-gmsh');
+  let wireframeEnabled = true;
+  let gmshEnabled = true;
+
+  meshBtn?.classList.toggle('active', wireframeEnabled);
+  gmshBtn?.classList.toggle('active', gmshEnabled);
+
+  meshBtn?.addEventListener('click', () => {
+    wireframeEnabled = !wireframeEnabled;
+    meshBtn.classList.toggle('active', wireframeEnabled);
+    viewer.toggleLayer('wireframe', wireframeEnabled);
+
+    if (wireframeEnabled && !gmshEnabled) {
+      gmshEnabled = true;
+      gmshBtn?.classList.add('active');
+      vscode.postMessage({ command: 'setGmshEnabled', enabled: true });
+    }
+  });
+
+  gmshBtn?.addEventListener('click', () => {
+    gmshEnabled = !gmshEnabled;
+    gmshBtn.classList.toggle('active', gmshEnabled);
+
+    if (!gmshEnabled && wireframeEnabled) {
+      wireframeEnabled = false;
+      meshBtn?.classList.remove('active');
+      viewer.toggleLayer('wireframe', false);
+    }
+
+    vscode.postMessage({ command: 'setGmshEnabled', enabled: gmshEnabled });
+  });
 
   // View buttons
   document.getElementById('view-top')?.addEventListener('click', () => viewer.setView('top'));
@@ -111,17 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
     viewer.toggleProjection();
     orthoBtn.classList.toggle('active', viewer.isOrtho);
     orthoBtn.textContent = viewer.isOrtho ? 'Ortho' : 'Persp';
-  });
-
-  // Export buttons
-  document.getElementById('export-stl')?.addEventListener('click', () => {
-    vscode.postMessage({ command: 'export', format: 'stl', dimension: currentMeshDimension });
-  });
-  document.getElementById('export-obj')?.addEventListener('click', () => {
-    vscode.postMessage({ command: 'export', format: 'obj', dimension: currentMeshDimension });
-  });
-  document.getElementById('export-msh')?.addEventListener('click', () => {
-    vscode.postMessage({ command: 'export', format: 'msh', dimension: currentMeshDimension });
   });
 
   // Settings & Discovery buttons
@@ -144,10 +164,14 @@ document.addEventListener('DOMContentLoaded', () => {
     vscode.postMessage({ command: 'openSettings' });
   });
 
-  // Error banner click -> jump to line
-  errorBanner.addEventListener('click', () => {
-    vscode.postMessage({ command: 'jumpToLine', line: lastErrorLine });
-  });
+  // Status badge click -> jump to line on error
+  if (statusBadge) {
+    statusBadge.addEventListener('click', () => {
+      if (hasError) {
+        vscode.postMessage({ command: 'jumpToLine', line: lastErrorLine });
+      }
+    });
+  }
 
   // Handle messages from Extension
   window.addEventListener('message', (event: MessageEvent<ExtensionMessage>) => {
@@ -167,22 +191,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         viewer.updateMesh(data);
-        loadingOverlay.style.display = 'none';
+        if (statusBadge && !hasError) {
+          statusBadge.style.display = 'none';
+        }
         break;
       }
       case 'showError': {
+        hasError = true;
         lastErrorLine = message.line;
-        errorText.textContent = message.message;
-        errorBanner.style.display = 'flex';
-        loadingOverlay.style.display = 'none';
+        if (statusBadge) {
+          statusBadge.textContent = `⚠ ${message.message}`;
+          statusBadge.className = 'badge status-badge error';
+          statusBadge.title = `${message.message} (Click to jump to line)`;
+          statusBadge.style.display = 'inline-flex';
+        }
         break;
       }
       case 'clearError': {
-        errorBanner.style.display = 'none';
+        hasError = false;
+        if (statusBadge) {
+          statusBadge.style.display = 'none';
+        }
         break;
       }
       case 'setLoading': {
-        loadingOverlay.style.display = message.loading ? 'flex' : 'none';
+        if (statusBadge) {
+          if (message.loading) {
+            hasError = false;
+            statusBadge.textContent = 'Running Gmsh...';
+            statusBadge.className = 'badge status-badge running';
+            statusBadge.title = 'Executing Gmsh...';
+            statusBadge.style.display = 'inline-flex';
+          } else if (!hasError) {
+            statusBadge.style.display = 'none';
+          }
+        }
         break;
       }
       case 'highlightEntity': {

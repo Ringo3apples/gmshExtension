@@ -44,21 +44,43 @@ export function activate(context: vscode.ExtensionContext) {
   gridStatusBarItem.command = 'gmshPreview.open';
   gridStatusBarItem.tooltip = 'Gmsh Preview Grid Scale';
 
+  const gmshStateStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
+  let lastErrorLine: number | undefined;
+
   GmshPreviewPanel.onGridInfoUpdate = (info) => {
     if (info && info.visible && info.step > 0) {
-      const stepStr = parseFloat(info.step.toPrecision(6)).toString();
-      const unitStr = info.step === 1 ? 'unit' : 'units';
-      gridStatusBarItem.text = `$(symbol-ruler) ${stepStr} ${unitStr}/grid`;
-      gridStatusBarItem.tooltip = `Gmsh 3D Preview: Grid scale is ${stepStr} ${unitStr} per grid cell (Click to open preview)`;
+      const stepMmStr = parseFloat((info.step * 1000).toPrecision(6)).toString();
+      gridStatusBarItem.text = `$(symbol-ruler) ${stepMmStr} mm/div`;
+      gridStatusBarItem.tooltip = `Gmsh 3D Preview: Grid scale is ${stepMmStr} mm/div (Click to open preview)`;
       gridStatusBarItem.show();
     } else if (info && !info.visible && info.step > 0) {
-      const stepStr = parseFloat(info.step.toPrecision(6)).toString();
-      const unitStr = info.step === 1 ? 'unit' : 'units';
-      gridStatusBarItem.text = `$(symbol-ruler) Grid: Off (${stepStr} ${unitStr}/grid)`;
-      gridStatusBarItem.tooltip = `Gmsh 3D Preview: Grid is hidden (Scale: ${stepStr} ${unitStr}/grid)`;
+      const stepMmStr = parseFloat((info.step * 1000).toPrecision(6)).toString();
+      gridStatusBarItem.text = `$(symbol-ruler) Grid: Off (${stepMmStr} mm/div)`;
+      gridStatusBarItem.tooltip = `Gmsh 3D Preview: Grid is hidden (Scale: ${stepMmStr} mm/div)`;
       gridStatusBarItem.show();
     } else {
       gridStatusBarItem.hide();
+    }
+  };
+
+  GmshPreviewPanel.onStatusUpdate = (status) => {
+    if (status.state === 'running') {
+      gmshStateStatusBarItem.text = '$(sync~spin) Running Gmsh...';
+      gmshStateStatusBarItem.tooltip = 'Gmsh is generating mesh...';
+      gmshStateStatusBarItem.backgroundColor = undefined;
+      gmshStateStatusBarItem.command = undefined;
+      gmshStateStatusBarItem.show();
+    } else if (status.state === 'error') {
+      lastErrorLine = status.line;
+      const msg = status.message || 'Syntax Error';
+      const shortMsg = msg.length > 48 ? msg.slice(0, 45) + '...' : msg;
+      gmshStateStatusBarItem.text = `$(error) ${shortMsg}`;
+      gmshStateStatusBarItem.tooltip = `${msg} (Click to jump to line)`;
+      gmshStateStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+      gmshStateStatusBarItem.command = 'gmshPreview.jumpToError';
+      gmshStateStatusBarItem.show();
+    } else {
+      gmshStateStatusBarItem.hide();
     }
   };
 
@@ -69,13 +91,20 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
       statusBarItem.hide();
       gridStatusBarItem.hide();
+      gmshStateStatusBarItem.hide();
     }
   };
 
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(updateStatusBarVisibility),
     statusBarItem,
-    gridStatusBarItem
+    gridStatusBarItem,
+    gmshStateStatusBarItem,
+    vscode.commands.registerCommand('gmshPreview.jumpToError', () => {
+      if (GmshPreviewPanel.currentPanel) {
+        GmshPreviewPanel.currentPanel.jumpToLine(lastErrorLine);
+      }
+    })
   );
   updateStatusBarVisibility();
 
@@ -101,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('gmshPreview.remesh', () => {
       if (GmshPreviewPanel.currentPanel) {
-        GmshPreviewPanel.currentPanel.updatePreviewImmediate();
+        GmshPreviewPanel.currentPanel.updatePreviewImmediate(true);
       }
     })
   );
@@ -131,7 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
         if (choice === 'プレビューを更新' || choice === '設定に保存する') {
           if (GmshPreviewPanel.currentPanel) {
-            GmshPreviewPanel.currentPanel.updatePreviewImmediate();
+            GmshPreviewPanel.currentPanel.updatePreviewImmediate(true);
           }
         }
       } else {
@@ -169,7 +198,7 @@ export function activate(context: vscode.ExtensionContext) {
           await vscode.workspace.getConfiguration('gmsh').update('executablePath', selectedPath, vscode.ConfigurationTarget.Global);
           vscode.window.showInformationMessage(`Gmsh パスを設定しました: ${selectedPath} (Version: ${verified.version || 'OK'})`);
           if (GmshPreviewPanel.currentPanel) {
-            GmshPreviewPanel.currentPanel.updatePreviewImmediate();
+            GmshPreviewPanel.currentPanel.updatePreviewImmediate(true);
           }
         } else {
           vscode.window.showErrorMessage(`選択されたファイルは有効な Gmsh 実行ファイルとして認識されませんでした: ${selectedPath}`);
