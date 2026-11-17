@@ -51,17 +51,10 @@ jobs:
           files: gmsh-preview-*.vsix
           generate_release_notes: true
 
-      - name: Publish to Open VSX (OIDC Trusted Publisher / Token)
+      - name: Publish to Open VSX (OIDC Trusted Publisher)
         if: github.event_name != 'pull_request'
         continue-on-error: true
-        env:
-          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
-        run: |
-          if [ -n "$OVSX_PAT" ]; then
-            npx -y ovsx publish gmsh-preview-*.vsix -p "$OVSX_PAT"
-          else
-            npx -y ovsx publish gmsh-preview-*.vsix
-          fi
+        run: npx -y ovsx@latest publish gmsh-preview-*.vsix --trusted-publishing --skip-duplicate
 
       - name: Publish to VS Code Marketplace (if VSCE_PAT is configured)
         if: github.event_name != 'pull_request'
