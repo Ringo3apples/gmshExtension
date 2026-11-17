@@ -38,3 +38,10 @@ jobs:
         with:
           name: gmsh-preview-vsix
           path: "*.vsix"
+
+      - name: Publish to Open VSX
+        uses: open-vsx/publish-action@v2
+        with:
+          extension-file: gmsh-preview-*.vsix
+          namespace: Ringo3Apples
+          extension-id: gmsh-preview
