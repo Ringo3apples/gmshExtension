@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   build:
@@ -50,16 +51,16 @@ jobs:
           files: gmsh-preview-*.vsix
           generate_release_notes: true
 
-      - name: Publish to Open VSX (if OPEN_VSX_TOKEN is configured)
+      - name: Publish to Open VSX (OIDC Trusted Publisher / Token)
         if: github.event_name != 'pull_request'
         continue-on-error: true
         env:
-          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
         run: |
-          if [ -n "$OPEN_VSX_TOKEN" ]; then
-            npx -y ovsx publish gmsh-preview-*.vsix -p "$OPEN_VSX_TOKEN"
+          if [ -n "$OVSX_PAT" ]; then
+            npx -y ovsx publish gmsh-preview-*.vsix -p "$OVSX_PAT"
           else
-            echo "OPEN_VSX_TOKEN not set, skipping Open VSX publish."
+            npx -y ovsx publish gmsh-preview-*.vsix
           fi
 
       - name: Publish to VS Code Marketplace (if VSCE_PAT is configured)
