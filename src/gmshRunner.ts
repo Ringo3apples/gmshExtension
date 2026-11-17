@@ -60,7 +60,9 @@ export class GmshRunner {
 
     try {
       const workingDir = originalFilePath ? path.dirname(originalFilePath) : this.tempDir;
-      await fs.promises.writeFile(tempGeoPath, geoContent, 'utf-8');
+      // Write with LF (\n) line endings so Gmsh's flex scanner on Windows does not shift yylineno by -1 on CRLF files
+      const normalizedGeoContent = geoContent.replace(/\r\n/g, '\n');
+      await fs.promises.writeFile(tempGeoPath, normalizedGeoContent, 'utf-8');
 
       const args: string[] = [
         tempGeoPath,

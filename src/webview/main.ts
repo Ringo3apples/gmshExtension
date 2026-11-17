@@ -55,12 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
         inspectorText.textContent = 'Hover over points, lines or surfaces';
         return;
       }
+      const nameSuffix = info.name ? ` (${info.name})` : '';
       if (info.type === 'point' && info.coords) {
-        inspectorText.textContent = `Point #${info.tag} [${info.coords[0].toFixed(2)}, ${info.coords[1].toFixed(2)}, ${info.coords[2].toFixed(2)}]`;
+        inspectorText.textContent = `Point #${info.tag}${nameSuffix} [${info.coords[0].toFixed(2)}, ${info.coords[1].toFixed(2)}, ${info.coords[2].toFixed(2)}]`;
       } else if (info.type === 'line') {
-        inspectorText.textContent = `Line #${info.tag}`;
+        inspectorText.textContent = `Line #${info.tag}${nameSuffix}`;
       } else if (info.type === 'surface') {
-        inspectorText.textContent = `Surface #${info.tag}`;
+        inspectorText.textContent = `Surface #${info.tag}${nameSuffix}`;
       }
     },
     onGridUpdate: (info) => {

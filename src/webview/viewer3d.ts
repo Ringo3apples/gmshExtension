@@ -13,9 +13,24 @@ export interface GridInfo {
 export interface ViewerOptions {
   container: HTMLElement;
   onSelectEntity?: (entityType: 'point' | 'line' | 'surface', tag: number) => void;
-  onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number] } | null) => void;
+  onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number]; name?: string } | null) => void;
   onGridUpdate?: (info: GridInfo) => void;
 }
+
+const REGION_COLOR_PALETTE = [
+  0x2563eb, // 1. Vibrant CAD Blue
+  0x10b981, // 2. Emerald Green
+  0xf59e0b, // 3. Amber / Gold
+  0x8b5cf6, // 4. Violet / Purple
+  0xf43f5e, // 5. Coral / Rose
+  0x06b6d4, // 6. Cyan
+  0x84cc16, // 7. Lime Green
+  0xd946ef, // 8. Fuchsia
+  0xf97316, // 9. Orange
+  0x14b8a6, // 10. Teal
+  0x6366f1, // 11. Indigo
+  0xec4899, // 12. Pink
+];
 
 export class Viewer3D {
   private container: HTMLElement;
@@ -51,7 +66,7 @@ export class Viewer3D {
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
   private onSelectEntity?: (entityType: 'point' | 'line' | 'surface', tag: number) => void;
-  private onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number] } | null) => void;
+  private onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number]; name?: string } | null) => void;
   private onGridUpdate?: (info: GridInfo) => void;
   private gridInfo: GridInfo = { size: 10, divisions: 20, step: 0.5, visible: true };
   private readonly pointPixelDiameter: number = 10;
@@ -110,6 +125,8 @@ export class Viewer3D {
     this.controls.dampingFactor = 0.05;
     this.controls.rotateSpeed = 0.8;
     this.controls.zoomSpeed = 1.2;
+    this.controls.screenSpacePanning = true;
+    this.controls.zoomToCursor = true;
 
     // 5. Lights (Simple, neutral reflected light suitable for CAD/FEM models)
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
@@ -221,7 +238,7 @@ export class Viewer3D {
         const hit = hits[0];
         const pt = hit.object.userData.point as GeometricPoint;
         if (pt) {
-          this.onHoverEntity({ type: 'point', tag: pt.tag, coords: [pt.x, pt.y, pt.z] });
+          this.onHoverEntity({ type: 'point', tag: pt.tag, coords: [pt.x, pt.y, pt.z], name: pt.physicalName });
           this.renderer.domElement.style.cursor = 'pointer';
           return;
         }
@@ -234,7 +251,7 @@ export class Viewer3D {
       if (hits.length > 0) {
         const line = hits[0].object.userData.line as GeometricLine;
         if (line) {
-          this.onHoverEntity({ type: 'line', tag: line.tag });
+          this.onHoverEntity({ type: 'line', tag: line.tag, name: line.physicalName });
           this.renderer.domElement.style.cursor = 'pointer';
           return;
         }
@@ -245,10 +262,25 @@ export class Viewer3D {
     if (this.showSurfaces && this.surfacesGroup.children.length > 0) {
       const hits = this.raycaster.intersectObjects(this.surfacesGroup.children);
       if (hits.length > 0) {
-        const faceIndex = hits[0].faceIndex;
-        if (typeof faceIndex === 'number' && this.currentMeshData.surfaceTags[faceIndex]) {
-          const tag = this.currentMeshData.surfaceTags[faceIndex];
-          this.onHoverEntity({ type: 'surface', tag });
+        // Among coplanar hits at the same distance, prefer the smallest-area surface
+        let bestHit = hits[0];
+        const minDist = bestHit.distance;
+        for (let i = 1; i < hits.length; i++) {
+          if (Math.abs(hits[i].distance - minDist) <= 1e-4) {
+            const bestArea = bestHit.object.userData?.surfaceArea ?? Infinity;
+            const candArea = hits[i].object.userData?.surfaceArea ?? Infinity;
+            if (candArea < bestArea) {
+              bestHit = hits[i];
+            }
+          } else {
+            break;
+          }
+        }
+        const hitObj = bestHit.object;
+        const tag = hitObj.userData?.surfaceTag;
+        const physicalName = hitObj.userData?.physicalName;
+        if (typeof tag === 'number') {
+          this.onHoverEntity({ type: 'surface', tag, name: physicalName });
           this.renderer.domElement.style.cursor = 'pointer';
           return;
         }
@@ -294,9 +326,21 @@ export class Viewer3D {
     if (this.showSurfaces && this.surfacesGroup.children.length > 0) {
       const hits = this.raycaster.intersectObjects(this.surfacesGroup.children);
       if (hits.length > 0) {
-        const faceIndex = hits[0].faceIndex;
-        if (typeof faceIndex === 'number' && this.currentMeshData.surfaceTags[faceIndex]) {
-          const tag = this.currentMeshData.surfaceTags[faceIndex];
+        let bestHit = hits[0];
+        const minDist = bestHit.distance;
+        for (let i = 1; i < hits.length; i++) {
+          if (Math.abs(hits[i].distance - minDist) <= 1e-4) {
+            const bestArea = bestHit.object.userData?.surfaceArea ?? Infinity;
+            const candArea = hits[i].object.userData?.surfaceArea ?? Infinity;
+            if (candArea < bestArea) {
+              bestHit = hits[i];
+            }
+          } else {
+            break;
+          }
+        }
+        const tag = bestHit.object.userData?.surfaceTag;
+        if (typeof tag === 'number') {
           this.highlightEntity('surface', tag);
           this.onSelectEntity('surface', tag);
           return;
@@ -421,48 +465,131 @@ export class Viewer3D {
       }
     });
 
-    // 5. Render Surfaces (Diffuse reflection surface / Lambertian reflection)
+    // 5. Render Surfaces (Region-colored diffuse reflection surfaces)
     if (data.surfaceTriangles.length > 0) {
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute('position', new THREE.Float32BufferAttribute(data.nodes, 3));
-      geom.setIndex(data.surfaceTriangles);
-      geom.computeVertexNormals();
+      const posAttr = new THREE.Float32BufferAttribute(data.nodes, 3);
+      const numTriangles = Math.floor(data.surfaceTriangles.length / 3);
 
-      // Front side: Vibrant CAD Blue (0x2563eb)
-      const matFront = new THREE.MeshStandardMaterial({
-        color: 0x2563eb,
-        roughness: 0.5,
-        metalness: 0.8,
-        side: THREE.FrontSide,
-        flatShading: true,
-        polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1
-      });
-      const meshFront = new THREE.Mesh(geom, matFront);
-      this.surfacesGroup.add(meshFront);
+      // Map surface tag -> physical name (if available)
+      const tagToPhysName = new Map<number, string>();
+      if (data.surfaceLabels) {
+        for (const sl of data.surfaceLabels) {
+          tagToPhysName.set(sl.tag, sl.physicalName);
+        }
+      }
 
-      // Back side: Distinct Red (0xdc2626)
-      const matBack = new THREE.MeshStandardMaterial({
-        color: 0xdc2626,
-        roughness: 0.5,
-        metalness: 0.8,
-        side: THREE.BackSide,
-        flatShading: true,
-        polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1
-      });
-      const meshBack = new THREE.Mesh(geom, matBack);
-      this.surfacesGroup.add(meshBack);
+      // Group triangle indices by surface tag and compute surface area per tag
+      const surfaceTriMap = new Map<number, number[]>();
+      const surfaceAreaMap = new Map<number, number>();
+      for (let i = 0; i < numTriangles; i++) {
+        const tag = data.surfaceTags[i] ?? 1;
+        let list = surfaceTriMap.get(tag);
+        if (!list) {
+          list = [];
+          surfaceTriMap.set(tag, list);
+        }
+        const i1 = data.surfaceTriangles[i * 3];
+        const i2 = data.surfaceTriangles[i * 3 + 1];
+        const i3 = data.surfaceTriangles[i * 3 + 2];
+        list.push(i1, i2, i3);
+
+        const ax = data.nodes[i1 * 3], ay = data.nodes[i1 * 3 + 1], az = data.nodes[i1 * 3 + 2];
+        const bx = data.nodes[i2 * 3], by = data.nodes[i2 * 3 + 1], bz = data.nodes[i2 * 3 + 2];
+        const cx = data.nodes[i3 * 3], cy = data.nodes[i3 * 3 + 1], cz = data.nodes[i3 * 3 + 2];
+        const abx = bx - ax, aby = by - ay, abz = bz - az;
+        const acx = cx - ax, acy = cy - ay, acz = cz - az;
+        const crossX = aby * acz - abz * acy;
+        const crossY = abz * acx - abx * acz;
+        const crossZ = abx * acy - aby * acx;
+        const triArea = 0.5 * Math.sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+        surfaceAreaMap.set(tag, (surfaceAreaMap.get(tag) || 0) + triArea);
+      }
+
+      // Sort tags ascending for deterministic region color assignment
+      const sortedTags = Array.from(surfaceTriMap.keys()).sort((a, b) => a - b);
+      // Rank tags by area ascending so smaller coplanar surfaces get smaller polygonOffset (rendered on top)
+      const tagsByAreaAsc = [...sortedTags].sort(
+        (a, b) => (surfaceAreaMap.get(a) || 0) - (surfaceAreaMap.get(b) || 0)
+      );
+      const areaRankMap = new Map<number, number>();
+      tagsByAreaAsc.forEach((tag, idx) => areaRankMap.set(tag, idx));
+
+      const regionColorMap = new Map<string, number>();
+
+      for (const tag of sortedTags) {
+        const triIndices = surfaceTriMap.get(tag)!;
+        const physicalName = tagToPhysName.get(tag);
+        const regionKey = physicalName ? `phys:${physicalName}` : `tag:${tag}`;
+
+        let hexColor = regionColorMap.get(regionKey);
+        if (hexColor === undefined) {
+          const regionIdx = regionColorMap.size;
+          if (regionIdx < REGION_COLOR_PALETTE.length) {
+            hexColor = REGION_COLOR_PALETTE[regionIdx];
+          } else {
+            // Golden-angle HSL fallback for 13+ regions
+            const hue = ((regionIdx * 137.508) % 360) / 360;
+            hexColor = new THREE.Color().setHSL(hue, 0.88, 0.45).getHex();
+          }
+          regionColorMap.set(regionKey, hexColor);
+        }
+
+        const frontColor = new THREE.Color(hexColor);
+        const hsl = { h: 0, s: 0, l: 0 };
+        frontColor.getHSL(hsl);
+        // Back side: lower saturation to 60% and lightness to 80%
+        const backColor = new THREE.Color().setHSL(hsl.h, hsl.s * 0.6, hsl.l * 0.8);
+
+        const surfGeom = new THREE.BufferGeometry();
+        surfGeom.setAttribute('position', posAttr);
+        surfGeom.setIndex(triIndices);
+        surfGeom.computeVertexNormals();
+
+        const areaRank = areaRankMap.get(tag) ?? 0;
+        const surfaceArea = surfaceAreaMap.get(tag) ?? 0;
+        const offsetFactor = 1 + areaRank * 0.5;
+        const offsetUnits = 1 + areaRank * 2;
+
+        const matFront = new THREE.MeshStandardMaterial({
+          color: frontColor,
+          roughness: 0.5,
+          metalness: 0.8,
+          side: THREE.FrontSide,
+          flatShading: true,
+          polygonOffset: true,
+          polygonOffsetFactor: offsetFactor,
+          polygonOffsetUnits: offsetUnits
+        });
+        const meshFront = new THREE.Mesh(surfGeom, matFront);
+        meshFront.userData = { surfaceTag: tag, physicalName, surfaceArea };
+        this.surfacesGroup.add(meshFront);
+
+        const matBack = new THREE.MeshStandardMaterial({
+          color: backColor,
+          roughness: 0.5,
+          metalness: 0.8,
+          side: THREE.BackSide,
+          flatShading: true,
+          polygonOffset: true,
+          polygonOffsetFactor: offsetFactor,
+          polygonOffsetUnits: offsetUnits
+        });
+        const meshBack = new THREE.Mesh(surfGeom, matBack);
+        meshBack.userData = { surfaceTag: tag, physicalName, surfaceArea };
+        this.surfacesGroup.add(meshBack);
+      }
 
       // 6. Mesh Wireframe
+      const allGeom = new THREE.BufferGeometry();
+      allGeom.setAttribute('position', posAttr);
+      allGeom.setIndex(data.surfaceTriangles);
+
       const wireframeMat = new THREE.LineBasicMaterial({
         color: 0x94a3b8, // Light slate
         transparent: true,
         opacity: 0.6
       });
-      const wireframeGeom = new THREE.WireframeGeometry(geom);
+      const wireframeGeom = new THREE.WireframeGeometry(allGeom);
       const wireframe = new THREE.LineSegments(wireframeGeom, wireframeMat);
       this.wireframeGroup.add(wireframe);
     }

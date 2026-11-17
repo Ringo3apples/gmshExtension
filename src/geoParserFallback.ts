@@ -30,7 +30,23 @@ export function parseGeoFallback(geoContent: string): MeshData {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
 
-  const statements = cleanContent.split(';').map(s => s.trim()).filter(Boolean);
+  // Split statements by ';' at top-level brace depth (ignoring ';' inside { ... })
+  const statements: string[] = [];
+  let currentStmt = '';
+  let braceDepth = 0;
+  for (let i = 0; i < cleanContent.length; i++) {
+    const ch = cleanContent[i];
+    if (ch === '{') braceDepth++;
+    else if (ch === '}') braceDepth = Math.max(0, braceDepth - 1);
+    if (ch === ';' && braceDepth === 0) {
+      const trimmed = currentStmt.trim();
+      if (trimmed) statements.push(trimmed);
+      currentStmt = '';
+    } else {
+      currentStmt += ch;
+    }
+  }
+  if (currentStmt.trim()) statements.push(currentStmt.trim());
 
   const evalExpr = (expr: string): number => {
     try {
@@ -38,11 +54,11 @@ export function parseGeoFallback(geoContent: string): MeshData {
       if (!sanitized) return 0;
 
       // Replace Gmsh built-in auto-id keywords if encountered directly in expressions
-      if (sanitized === 'newp') return nextPointTag;
-      if (sanitized === 'newc') return nextCurveTag;
-      if (sanitized === 'newcl') return nextLoopTag;
-      if (sanitized === 'news') return nextSurfaceTag;
-      if (sanitized === 'newv') return nextVolumeTag;
+      if (sanitized === 'newp') return nextPointTag++;
+      if (sanitized === 'newc' || sanitized === 'newl') return nextCurveTag++;
+      if (sanitized === 'newcl' || sanitized === 'newll') return nextLoopTag++;
+      if (sanitized === 'news' || sanitized === 'newreg') return nextSurfaceTag++;
+      if (sanitized === 'newv') return nextVolumeTag++;
 
       // Normalize array index syntax e.g. s_shaft[0] -> s_shaft__0
       sanitized = sanitized.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(\d+)\s*\]/g, '$1__$2');
@@ -131,13 +147,13 @@ export function parseGeoFallback(geoContent: string): MeshData {
       if (rhs === 'newp') {
         variables.set(name, nextPointTag++);
         continue;
-      } else if (rhs === 'newc') {
+      } else if (rhs === 'newc' || rhs === 'newl') {
         variables.set(name, nextCurveTag++);
         continue;
-      } else if (rhs === 'newcl') {
+      } else if (rhs === 'newcl' || rhs === 'newll') {
         variables.set(name, nextLoopTag++);
         continue;
-      } else if (rhs === 'news') {
+      } else if (rhs === 'news' || rhs === 'newreg') {
         variables.set(name, nextSurfaceTag++);
         continue;
       } else if (rhs === 'newv') {
@@ -380,6 +396,71 @@ export function parseGeoFallback(geoContent: string): MeshData {
       const params = sphereMatch[2].split(',').map(s => evalExpr(s));
       const [x = 0, y = 0, z = 0, r = 1] = params;
       addSphereGeometry(tag, x, y, z, r, nodes, nodeTags, points, lines, surfaceTriangles, surfaceTags);
+      continue;
+    }
+
+    // Extrude {dx, dy, dz} { Curve{...}; }
+    const extrudeMatch = stmt.match(/^(?:([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\[\s*\]|\(\s*\))?\s*=\s*)?Extrude\s*\{\s*([^}]+)\s*\}\s*\{\s*([\s\S]+)\s*\}$/i);
+    if (extrudeMatch) {
+      const outVar = extrudeMatch[1];
+      const vecParts = extrudeMatch[2].split(',').map(s => evalExpr(s));
+      const [dx = 0, dy = 0, dz = 0] = vecParts;
+      const body = extrudeMatch[3];
+
+      const curveEntityMatch = body.match(/(?:Curve|Line)\s*\{\s*([^}]+)\s*\}/i);
+      if (curveEntityMatch) {
+        const cTags = curveEntityMatch[1].split(',').map(s => Math.round(evalExpr(s)));
+        for (const cTag of cTags) {
+          const basePoly = curvePolylines.get(Math.abs(cTag));
+          if (basePoly && basePoly.length >= 2) {
+            const topPoly: number[] = [];
+            for (const nIdx of basePoly) {
+              const nx = nodes[nIdx * 3] + dx;
+              const ny = nodes[nIdx * 3 + 1] + dy;
+              const nz = nodes[nIdx * 3 + 2] + dz;
+              topPoly.push(addNode(nx, ny, nz));
+            }
+
+            // Add start & end points of extruded curve
+            const pStartIdx = topPoly[0];
+            const pStartTag = nextPointTag++;
+            points.push({ tag: pStartTag, nodeIndex: pStartIdx, x: nodes[pStartIdx * 3], y: nodes[pStartIdx * 3 + 1], z: nodes[pStartIdx * 3 + 2] });
+            if (topPoly.length > 1 && topPoly[topPoly.length - 1] !== pStartIdx) {
+              const pEndIdx = topPoly[topPoly.length - 1];
+              const pEndTag = nextPointTag++;
+              points.push({ tag: pEndTag, nodeIndex: pEndIdx, x: nodes[pEndIdx * 3], y: nodes[pEndIdx * 3 + 1], z: nodes[pEndIdx * 3 + 2] });
+            }
+
+            const topCurveTag = nextCurveTag++;
+            addPolylineAsLine(topCurveTag, topPoly);
+
+            const surfTag = nextSurfaceTag++;
+            for (let k = 0; k < basePoly.length - 1; k++) {
+              const p1 = basePoly[k];
+              const p2 = basePoly[k + 1];
+              const q1 = topPoly[k];
+              const q2 = topPoly[k + 1];
+              surfaceTriangles.push(p1, p2, q2);
+              surfaceTags.push(surfTag);
+              surfaceTriangles.push(p1, q2, q1);
+              surfaceTags.push(surfTag);
+            }
+
+            const side1Tag = nextCurveTag++;
+            addPolylineAsLine(side1Tag, [basePoly[0], topPoly[0]]);
+
+            const side2Tag = nextCurveTag++;
+            addPolylineAsLine(side2Tag, [basePoly[basePoly.length - 1], topPoly[topPoly.length - 1]]);
+
+            if (outVar) {
+              variables.set(`${outVar}__0`, topCurveTag);
+              variables.set(`${outVar}__1`, surfTag);
+              variables.set(`${outVar}__2`, side1Tag);
+              variables.set(`${outVar}__3`, side2Tag);
+            }
+          }
+        }
+      }
       continue;
     }
   }
