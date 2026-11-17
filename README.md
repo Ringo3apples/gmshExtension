@@ -24,6 +24,13 @@
   <a href="#japanese-日本語">日本語ドキュメント</a>
 </p>
 
+<p align="center">
+  <img src="resources/screenshot_round_corner.jpg" width="840" alt="Gmsh Side-by-Side Editor and 3D Preview" />
+</p>
+<p align="center">
+  <img src="resources/screenshot.png" width="640" alt="Gmsh Multi-Region CAD Surface Coloring" />
+</p>
+
 ---
 
 ## ✨ Features
@@ -36,15 +43,14 @@
 - **Auto-Closing & Indentation Rules**: Optimized brackets, quotes, and `{}` indentation hierarchy tailored for Gmsh syntax.
 
 ### 2. ⚡ Real-Time 3D Geometry & Mesh Preview
-- **Live Sync**: As you edit `.geo` files, the 3D preview automatically updates in milliseconds (debounced).
+- **Live Sync & `Gmsh` / `Mesh` Mode Coupling**: Toggle between pure `.geo` geometry preview (`Gmsh` OFF, showing `P#`/`L#` ID labels without running Gmsh CLI) and full Gmsh execution (`Gmsh` ON, displaying `.msh` geometry, mesh wireframe, and `Physical` entity names).
+- **Per-Region Surface Color Coding**: Automatically colors each `Physical Surface` or `Surface` tag using a distinct 12-color CAD palette, with desaturated back faces (60% saturation, 80% lightness) for clear normal orientation recognition.
+- **Cursor-Centered Zoom**: Mouse wheel zooming in both Perspective and Orthographic modes centers directly on the 3D point under the cursor.
 - **Two-Way Code Navigation**: Click on any point, curve, or surface in the 3D viewport to immediately jump and focus the editor cursor on its definition line!
-- **Mesh Dimension Switching**: Toggle between 0D (geometry points/curves), 1D (line elements), 2D (surface triangles/quads), and 3D (volume tetrahedra/hexahedra).
-- **Screen-Space Constant Labels**: Visual tags for points (`P1`, `P2`...) and lines (`L1`, `L2`...) automatically maintain an optimal, readable pixel size regardless of camera zoom or perspective distance.
-- **Adaptive Ground Grid & Scale Bar**: Smart grid stepping (`1, 2, 5 × 10^n`) ensures 1 cell corresponds directly to natural model units (e.g. 1 unit in `Box`). Scale indicator overlay directly on the 3D viewport, preview inspector, and status bar.
-- **Display Toggles**: Easily toggle points, boundary curves, surface faces, mesh wireframe, labels, ground grid, and coordinate axes.
-- **Multi-Angle Camera**: Instant presets for Top, Front, Side, Isometric, and Fit-to-Screen views, plus Perspective / Orthographic projection toggle.
-- **Automatic `.msh` Output**: Automatically writes the generated `.msh` file alongside your `.geo` file (same directory and base filename) whenever Gmsh succeeds.
-- **Built-in Fallback Parser**: Even if Gmsh CLI is not yet installed or has syntax errors, an internal fallback parser keeps basic geometry visible.
+- **Borderless Smart Labels & Fixed 10px Markers**: Point markers and labels maintain a crisp, constant pixel size regardless of zoom, with line labels dynamically tracking the visible segment center on screen.
+- **Origin-Aligned Infinite Adaptive Grid (`mm/div`)**: Smart grid stepping (`1, 2, 5 × 10^n`) anchored at the world origin `(0, 0, 0)` with major 5-division lines and `mm/div` scale indicator on the status bar.
+- **Display Toggles & Multi-Angle Camera**: Easily toggle points, curves, surfaces, mesh wireframe, and labels, with instant presets for Top, Front, Side, Isometric, Fit-to-Screen, and Perspective / Orthographic projection.
+- **Automatic `.msh` Output**: Automatically writes `<filename>.msh` alongside your `.geo` file whenever Gmsh succeeds.
 
 ---
 
@@ -149,9 +155,11 @@ Type the prefix and press `Tab` or `Enter` to expand:
 
 - **IntelliSense 補完**: `Point`, `Circle`, `Extrude`, `MeshSize` 等の主要コマンドおよびファイル内で定義した変数を自動補完。
 - **ホバー表示**: コマンドの上にマウスを置くだけで構文仕様・引数の意味・使用例を表示。
-- **3D プレビュー**: コード編集時にミリ秒単位で再描画。3D 上の点・線・面をクリックするとコードの該当行へ即座にジャンプ。
-- **画面固定サイズのラベル表示**: ズーム倍率に関わらず、点（`P1`）や線（`L1`）のラベルが常に読みやすい一定ピクセルサイズを維持。
-- **直感的なグリッド＆スケール表示**: モデル寸法に応じたキリの良いマス目単位（`1, 2, 5 × 10^n`）を自動算出。3D 画面上・インスペクター・VS Code 最下部ステータスバーの3箇所で「1マスの長さ」を確認可能。
+- **Gmsh / Mesh モード切替 & 自動 `.msh` 出力**: Gmshオフ時は `.geo` の形状と `P1`/`L1` ラベルを高速表示し、Gmshオン時は `.msh` を同フォルダに自動出力して Physical 名ラベルやメッシュを表示。
+- **領域ごとの Surface 色分け表示**: `Physical Surface` または Surface タグごとに CAD カラーパレットで自動色分け（裏面は彩度60%・明度80%で法線向きを判別可能）。
+- **マウスカーソル中心ズーム**: Perspective / Ortho の両方でマウスカーソル位置を中心に拡大・縮小。
+- **画面固定サイズのスマートラベル & 10px 点マーカー**: ズーム倍率に関わらず一定サイズを維持し、線の画面内中央に枠なしで見やすく配置。
+- **原点基準のアダプティブグリッド (`mm/div`)**: 原点 `(0, 0, 0)` を基準に `1, 2, 5 × 10^n` 単位で自動調整され、ステータスバーに `mm/div` スケールを表示。
 - **Gmsh 自動検出**: お使いの PC 内の `gmsh.exe` を自動検出するため、環境変数の事前設定が不要です。
 
 #### インストール方法（日本語）

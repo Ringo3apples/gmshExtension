@@ -2,6 +2,24 @@
 
 All notable changes to the **Gmsh (Language Support & 3D Preview)** extension will be documented in this file.
 
+## [0.5.0] - 2026-11-17
+### Added
+- **Per-Region Surface Color Coding**:
+  - Automatically assigns distinct colors from a 12-color CAD palette (with golden-angle HSL expansion for 13+ regions) to each `Physical Surface` (when `Gmsh` is ON) or each `Surface` tag (when `Gmsh` is OFF).
+  - Back faces are rendered using the same hue as the front face with saturation reduced to 60% and lightness to 80%, preserving region identity while clearly indicating surface normal orientation.
+- **Cursor-Centered Zoom (`zoomToCursor`)**:
+  - Mouse wheel zooming in both Perspective and Orthographic camera projections now zooms directly toward/away from the 3D world point under the mouse cursor.
+- **Coplanar Overlapping Surface Layering**:
+  - Computes surface areas and applies area-ranked `polygonOffset` and raycasting priority so smaller coplanar regions (such as coils and iron cores inside an air box) always render and select cleanly on top of larger background surfaces without Z-fighting.
+- **Enhanced Fallback `.geo` Parser**:
+  - Added support for `newreg`, `newl`, and `newll` auto-ID keywords, brace-aware statement splitting (handling `;` inside `{ ... }`), and `Extrude {dx, dy, dz} { Curve{...}; }` surface/curve generation.
+- **Physical Name Hover Inspector**:
+  - Displays Physical Names alongside entity tags (e.g. `Surface #1 (ironCore)`) in the bottom inspector bar when hovering over points, lines, or surfaces.
+
+### Fixed
+- **Exact Error Line Number Alignment on Windows**:
+  - Normalizes temporary `.geo` files to `LF (\n)` line endings before invoking Gmsh, preventing Windows `CRLF (\r\n)` line-counting offsets in Gmsh's lexer so reported error lines match editor line numbers 100%.
+
 ## [0.4.0] - 2026-11-11
 ### Added
 - **Gmsh Mode Toggle (`Gmsh` & `Mesh` Coupling)**:

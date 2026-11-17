@@ -13,6 +13,8 @@ sandbox/**
 scratch/**
 temp/**
 examples/test.geo
+examples/*.vtu
+examples/*.msh
 **/*.dev.*
 **/*.local.*
 **/*.tmp
