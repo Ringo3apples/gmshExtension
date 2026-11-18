@@ -53,12 +53,10 @@ jobs:
 
       - name: Publish to Open VSX (OIDC Trusted Publisher)
         if: github.event_name != 'pull_request'
-        continue-on-error: true
         run: npx -y ovsx@latest publish gmsh-preview-*.vsix --trusted-publishing --skip-duplicate
 
       - name: Publish to VS Code Marketplace (OIDC Trusted Publisher / VSCE_PAT)
         if: github.event_name != 'pull_request'
-        continue-on-error: true
         env:
           PAT_TOKEN: ${{ secrets.VSCE_PAT }}
         run: |
