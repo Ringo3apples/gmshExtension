@@ -10,11 +10,22 @@ export interface GridInfo {
   visible: boolean;
 }
 
+export interface SurfaceRegionInfo {
+  key: string;
+  label: string;
+  tags: number[];
+  color: string;
+  visible: boolean;
+}
+
+export type CylindricalMode = 'off' | 'translucent' | 'opaque';
+
 export interface ViewerOptions {
   container: HTMLElement;
   onSelectEntity?: (entityType: 'point' | 'line' | 'surface', tag: number) => void;
   onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number]; name?: string } | null) => void;
   onGridUpdate?: (info: GridInfo) => void;
+  onSurfacesUpdate?: (surfaces: SurfaceRegionInfo[]) => void;
 }
 
 const REGION_COLOR_PALETTE = [
@@ -46,6 +57,7 @@ export class Viewer3D {
   private pointsGroup: THREE.Group;
   private linesGroup: THREE.Group;
   private surfacesGroup: THREE.Group;
+  private cylindricalGroup: THREE.Group;
   private wireframeGroup: THREE.Group;
   private helpersGroup: THREE.Group;
   private highlightGroup: THREE.Group;
@@ -68,14 +80,20 @@ export class Viewer3D {
   private onSelectEntity?: (entityType: 'point' | 'line' | 'surface', tag: number) => void;
   private onHoverEntity?: (info: { type: string; tag: number; coords?: [number, number, number]; name?: string } | null) => void;
   private onGridUpdate?: (info: GridInfo) => void;
+  private onSurfacesUpdate?: (surfaces: SurfaceRegionInfo[]) => void;
   private gridInfo: GridInfo = { size: 10, divisions: 20, step: 0.5, visible: true };
   private readonly pointPixelDiameter: number = 10;
   private readonly highlightPointPixelDiameter: number = 15;
+  private hiddenSurfaceKeys: Set<string> = new Set();
+  private customSurfaceColors: Map<string, number> = new Map();
+  private surfaceRegions: SurfaceRegionInfo[] = [];
+  private lastFitMode: 'all' | 'visibleSurfaces' | null = null;
 
   // Display toggles
   public showPoints: boolean = true;
   public showLines: boolean = true;
   public showSurfaces: boolean = true;
+  public cylindricalMode: CylindricalMode = 'off';
   public showWireframe: boolean = true;
   public showLabels: boolean = true;
   public showAxes: boolean = true;
@@ -87,6 +105,7 @@ export class Viewer3D {
     this.onSelectEntity = options.onSelectEntity;
     this.onHoverEntity = options.onHoverEntity;
     this.onGridUpdate = options.onGridUpdate;
+    this.onSurfacesUpdate = options.onSurfacesUpdate;
 
     const width = this.container.clientWidth || 800;
     const height = this.container.clientHeight || 600;
@@ -127,6 +146,9 @@ export class Viewer3D {
     this.controls.zoomSpeed = 1.2;
     this.controls.screenSpacePanning = true;
     this.controls.zoomToCursor = true;
+    this.controls.addEventListener('start', () => {
+      this.lastFitMode = null;
+    });
 
     // 5. Lights (Simple, neutral reflected light suitable for CAD/FEM models)
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
@@ -146,11 +168,13 @@ export class Viewer3D {
     this.pointsGroup = new THREE.Group();
     this.linesGroup = new THREE.Group();
     this.surfacesGroup = new THREE.Group();
+    this.cylindricalGroup = new THREE.Group();
     this.wireframeGroup = new THREE.Group();
     this.helpersGroup = new THREE.Group();
     this.highlightGroup = new THREE.Group();
 
     this.scene.add(this.surfacesGroup);
+    this.scene.add(this.cylindricalGroup);
     this.scene.add(this.wireframeGroup);
     this.scene.add(this.linesGroup);
     this.scene.add(this.pointsGroup);
@@ -258,31 +282,38 @@ export class Viewer3D {
       }
     }
 
-    // Check surfaces
-    if (this.showSurfaces && this.surfacesGroup.children.length > 0) {
-      const hits = this.raycaster.intersectObjects(this.surfacesGroup.children);
-      if (hits.length > 0) {
-        // Among coplanar hits at the same distance, prefer the smallest-area surface
-        let bestHit = hits[0];
-        const minDist = bestHit.distance;
-        for (let i = 1; i < hits.length; i++) {
-          if (Math.abs(hits[i].distance - minDist) <= 1e-4) {
-            const bestArea = bestHit.object.userData?.surfaceArea ?? Infinity;
-            const candArea = hits[i].object.userData?.surfaceArea ?? Infinity;
-            if (candArea < bestArea) {
-              bestHit = hits[i];
+    // Check surfaces (original planar surfaces first, then cylindrical revolved surfaces if enabled)
+    if (this.showSurfaces) {
+      const surfaceTargets = this.cylindricalMode === 'opaque'
+        ? this.cylindricalGroup.children
+        : this.cylindricalMode === 'translucent'
+          ? [...this.surfacesGroup.children, ...this.cylindricalGroup.children]
+          : this.surfacesGroup.children;
+      if (surfaceTargets.length > 0) {
+        const hits = this.raycaster.intersectObjects(surfaceTargets).filter(h => h.object.visible);
+        if (hits.length > 0) {
+          // Among coplanar hits at the same distance, prefer the smallest-area surface
+          let bestHit = hits[0];
+          const minDist = bestHit.distance;
+          for (let i = 1; i < hits.length; i++) {
+            if (Math.abs(hits[i].distance - minDist) <= 1e-4) {
+              const bestArea = bestHit.object.userData?.surfaceArea ?? Infinity;
+              const candArea = hits[i].object.userData?.surfaceArea ?? Infinity;
+              if (candArea < bestArea) {
+                bestHit = hits[i];
+              }
+            } else {
+              break;
             }
-          } else {
-            break;
           }
-        }
-        const hitObj = bestHit.object;
-        const tag = hitObj.userData?.surfaceTag;
-        const physicalName = hitObj.userData?.physicalName;
-        if (typeof tag === 'number') {
-          this.onHoverEntity({ type: 'surface', tag, name: physicalName });
-          this.renderer.domElement.style.cursor = 'pointer';
-          return;
+          const hitObj = bestHit.object;
+          const tag = hitObj.userData?.surfaceTag;
+          const physicalName = hitObj.userData?.physicalName;
+          if (typeof tag === 'number') {
+            this.onHoverEntity({ type: 'surface', tag, name: physicalName });
+            this.renderer.domElement.style.cursor = 'pointer';
+            return;
+          }
         }
       }
     }
@@ -322,28 +353,35 @@ export class Viewer3D {
       }
     }
 
-    // 3. Check surfaces
-    if (this.showSurfaces && this.surfacesGroup.children.length > 0) {
-      const hits = this.raycaster.intersectObjects(this.surfacesGroup.children);
-      if (hits.length > 0) {
-        let bestHit = hits[0];
-        const minDist = bestHit.distance;
-        for (let i = 1; i < hits.length; i++) {
-          if (Math.abs(hits[i].distance - minDist) <= 1e-4) {
-            const bestArea = bestHit.object.userData?.surfaceArea ?? Infinity;
-            const candArea = hits[i].object.userData?.surfaceArea ?? Infinity;
-            if (candArea < bestArea) {
-              bestHit = hits[i];
+    // 3. Check surfaces (original planar surfaces + cylindrical revolved surfaces if enabled)
+    if (this.showSurfaces) {
+      const surfaceTargetsClick = this.cylindricalMode === 'opaque'
+        ? this.cylindricalGroup.children
+        : this.cylindricalMode === 'translucent'
+          ? [...this.surfacesGroup.children, ...this.cylindricalGroup.children]
+          : this.surfacesGroup.children;
+      if (surfaceTargetsClick.length > 0) {
+        const hits = this.raycaster.intersectObjects(surfaceTargetsClick).filter(h => h.object.visible);
+        if (hits.length > 0) {
+          let bestHit = hits[0];
+          const minDist = bestHit.distance;
+          for (let i = 1; i < hits.length; i++) {
+            if (Math.abs(hits[i].distance - minDist) <= 1e-4) {
+              const bestArea = bestHit.object.userData?.surfaceArea ?? Infinity;
+              const candArea = hits[i].object.userData?.surfaceArea ?? Infinity;
+              if (candArea < bestArea) {
+                bestHit = hits[i];
+              }
+            } else {
+              break;
             }
-          } else {
-            break;
           }
-        }
-        const tag = bestHit.object.userData?.surfaceTag;
-        if (typeof tag === 'number') {
-          this.highlightEntity('surface', tag);
-          this.onSelectEntity('surface', tag);
-          return;
+          const tag = bestHit.object.userData?.surfaceTag;
+          if (typeof tag === 'number') {
+            this.highlightEntity('surface', tag);
+            this.onSelectEntity('surface', tag);
+            return;
+          }
         }
       }
     }
@@ -402,6 +440,7 @@ export class Viewer3D {
     this.clearGroup(this.pointsGroup);
     this.clearGroup(this.linesGroup);
     this.clearGroup(this.surfacesGroup);
+    this.clearGroup(this.cylindricalGroup);
     this.clearGroup(this.wireframeGroup);
     this.clearGroup(this.helpersGroup);
     this.gridLines = null;
@@ -466,6 +505,7 @@ export class Viewer3D {
     });
 
     // 5. Render Surfaces (Region-colored diffuse reflection surfaces)
+    this.surfaceRegions = [];
     if (data.surfaceTriangles.length > 0) {
       const posAttr = new THREE.Float32BufferAttribute(data.nodes, 3);
       const numTriangles = Math.floor(data.surfaceTriangles.length / 3);
@@ -515,13 +555,14 @@ export class Viewer3D {
       tagsByAreaAsc.forEach((tag, idx) => areaRankMap.set(tag, idx));
 
       const regionColorMap = new Map<string, number>();
+      const regionInfoMap = new Map<string, SurfaceRegionInfo>();
 
       for (const tag of sortedTags) {
         const triIndices = surfaceTriMap.get(tag)!;
         const physicalName = tagToPhysName.get(tag);
         const regionKey = physicalName ? `phys:${physicalName}` : `tag:${tag}`;
 
-        let hexColor = regionColorMap.get(regionKey);
+        let hexColor = this.customSurfaceColors.get(regionKey) ?? regionColorMap.get(regionKey);
         if (hexColor === undefined) {
           const regionIdx = regionColorMap.size;
           if (regionIdx < REGION_COLOR_PALETTE.length) {
@@ -532,6 +573,25 @@ export class Viewer3D {
             hexColor = new THREE.Color().setHSL(hue, 0.88, 0.45).getHex();
           }
           regionColorMap.set(regionKey, hexColor);
+        } else {
+          regionColorMap.set(regionKey, hexColor);
+        }
+
+        const isRegionVisible = !this.hiddenSurfaceKeys.has(regionKey);
+
+        let regionInfo = regionInfoMap.get(regionKey);
+        if (!regionInfo) {
+          regionInfo = {
+            key: regionKey,
+            label: physicalName || `Surface #${tag}`,
+            tags: [tag],
+            color: '#' + new THREE.Color(hexColor).getHexString(),
+            visible: isRegionVisible
+          };
+          regionInfoMap.set(regionKey, regionInfo);
+          this.surfaceRegions.push(regionInfo);
+        } else {
+          regionInfo.tags.push(tag);
         }
 
         const frontColor = new THREE.Color(hexColor);
@@ -561,7 +621,8 @@ export class Viewer3D {
           polygonOffsetUnits: offsetUnits
         });
         const meshFront = new THREE.Mesh(surfGeom, matFront);
-        meshFront.userData = { surfaceTag: tag, physicalName, surfaceArea };
+        meshFront.visible = isRegionVisible;
+        meshFront.userData = { surfaceTag: tag, physicalName, surfaceArea, regionKey, isBack: false };
         this.surfacesGroup.add(meshFront);
 
         const matBack = new THREE.MeshStandardMaterial({
@@ -575,23 +636,57 @@ export class Viewer3D {
           polygonOffsetUnits: offsetUnits
         });
         const meshBack = new THREE.Mesh(surfGeom, matBack);
-        meshBack.userData = { surfaceTag: tag, physicalName, surfaceArea };
+        meshBack.visible = isRegionVisible;
+        meshBack.userData = { surfaceTag: tag, physicalName, surfaceArea, regionKey, isBack: true };
         this.surfacesGroup.add(meshBack);
+
+        // 6. Per-Surface Mesh Wireframe (so hiding a surface also hides its wireframe)
+        const wireframeMat = new THREE.LineBasicMaterial({
+          color: 0x94a3b8, // Light slate
+          transparent: true,
+          opacity: 0.6
+        });
+        const wireframeGeom = new THREE.WireframeGeometry(surfGeom);
+        const wireframe = new THREE.LineSegments(wireframeGeom, wireframeMat);
+        wireframe.visible = isRegionVisible;
+        wireframe.userData = { surfaceTag: tag, regionKey };
+        this.wireframeGroup.add(wireframe);
+
+        // 6b. Cylindrical (Y-axis Revolution) 3D Surface (supports translucent & opaque modes)
+        const revolvedGeom = this.buildRevolvedSurfaceGeometry(data.nodes, triIndices, 48);
+        if (revolvedGeom) {
+          const isOpaque = this.cylindricalMode === 'opaque';
+          const cylBackMat = new THREE.MeshStandardMaterial({
+            color: backColor,
+            roughness: 0.45,
+            metalness: 0.6,
+            side: THREE.BackSide,
+            transparent: !isOpaque,
+            opacity: isOpaque ? 1.0 : 0.16,
+            depthWrite: isOpaque
+          });
+          const cylBackMesh = new THREE.Mesh(revolvedGeom, cylBackMat);
+          cylBackMesh.visible = isRegionVisible;
+          cylBackMesh.renderOrder = isOpaque ? 0 : 1;
+          cylBackMesh.userData = { surfaceTag: tag, physicalName, surfaceArea, regionKey, isBack: true };
+          this.cylindricalGroup.add(cylBackMesh);
+
+          const cylFrontMat = new THREE.MeshStandardMaterial({
+            color: frontColor,
+            roughness: 0.45,
+            metalness: 0.6,
+            side: THREE.FrontSide,
+            transparent: !isOpaque,
+            opacity: isOpaque ? 1.0 : 0.28,
+            depthWrite: isOpaque
+          });
+          const cylFrontMesh = new THREE.Mesh(revolvedGeom, cylFrontMat);
+          cylFrontMesh.visible = isRegionVisible;
+          cylFrontMesh.renderOrder = isOpaque ? 0 : 2;
+          cylFrontMesh.userData = { surfaceTag: tag, physicalName, surfaceArea, regionKey, isBack: false };
+          this.cylindricalGroup.add(cylFrontMesh);
+        }
       }
-
-      // 6. Mesh Wireframe
-      const allGeom = new THREE.BufferGeometry();
-      allGeom.setAttribute('position', posAttr);
-      allGeom.setIndex(data.surfaceTriangles);
-
-      const wireframeMat = new THREE.LineBasicMaterial({
-        color: 0x94a3b8, // Light slate
-        transparent: true,
-        opacity: 0.6
-      });
-      const wireframeGeom = new THREE.WireframeGeometry(allGeom);
-      const wireframe = new THREE.LineSegments(wireframeGeom, wireframeMat);
-      this.wireframeGroup.add(wireframe);
     }
 
     // 7. Update Labels (linked with Points, Lines, and Surfaces visibility)
@@ -606,17 +701,27 @@ export class Viewer3D {
       data.surfaceLabels || [],
       data.labelMode || 'geo'
     );
+    // Sync per-surface label visibility with hiddenSurfaceKeys
+    for (const region of this.surfaceRegions) {
+      if (!region.visible) {
+        for (const tag of region.tags) {
+          this.labelManager.setSurfaceTagVisible(tag, false);
+        }
+      }
+    }
     this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
+    this.onSurfacesUpdate?.(this.surfaceRegions);
 
     // Apply visibility states
     this.pointsGroup.visible = this.showPoints;
     this.linesGroup.visible = this.showLines;
-    this.surfacesGroup.visible = this.showSurfaces;
+    this.applyCylindricalVisibility();
     this.wireframeGroup.visible = this.showWireframe;
 
     if (isFirstLoad) {
-      this.setView('iso');
+      this.setView('iso', true);
     }
+    this.lastFitMode = null;
 
     this.updatePointMarkerScales();
     this.labelManager.updateScales(this.currentCamera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
@@ -858,10 +963,69 @@ export class Viewer3D {
     }
   }
 
-  public resetView() {
-    if (!this.currentMeshData) return;
-    const center = this.boundingSphere.center;
-    const radius = this.getEffectiveRadius();
+  private getFullBoundingBox(): THREE.Box3 {
+    const box = this.boundingBox.clone();
+    if (this.cylindricalMode !== 'off' && this.cylindricalGroup.children.length > 0) {
+      for (const child of this.cylindricalGroup.children) {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) {
+          if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+          if (mesh.geometry.boundingBox) {
+            box.union(mesh.geometry.boundingBox);
+          }
+        }
+      }
+    }
+    return box;
+  }
+
+  private getVisibleSurfacesBoundingBox(): THREE.Box3 | null {
+    if (!this.showSurfaces) return null;
+    const box = new THREE.Box3();
+    const tmp = new THREE.Vector3();
+    let hasVisible = false;
+
+    const addVisibleMeshes = (group: THREE.Group) => {
+      for (const child of group.children) {
+        if (!child.visible) continue;
+        const mesh = child as THREE.Mesh;
+        const geom = mesh.geometry;
+        if (!geom) continue;
+        const pos = geom.getAttribute('position');
+        if (!pos) continue;
+
+        const index = geom.getIndex();
+        if (index) {
+          // Indexed geometry shares the full model's position buffer, so iterate only indexed vertices
+          const arr = index.array;
+          for (let i = 0; i < arr.length; i++) {
+            const vIdx = arr[i];
+            tmp.set(pos.getX(vIdx), pos.getY(vIdx), pos.getZ(vIdx));
+            box.expandByPoint(tmp);
+            hasVisible = true;
+          }
+        } else {
+          if (!geom.boundingBox) geom.computeBoundingBox();
+          if (geom.boundingBox && !geom.boundingBox.isEmpty()) {
+            box.union(geom.boundingBox);
+            hasVisible = true;
+          }
+        }
+      }
+    };
+
+    addVisibleMeshes(this.surfacesGroup);
+    if (this.cylindricalMode !== 'off') {
+      addVisibleMeshes(this.cylindricalGroup);
+    }
+
+    return hasVisible ? box : null;
+  }
+
+  private fitToBox(box: THREE.Box3) {
+    const center = box.getCenter(new THREE.Vector3());
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    const radius = sphere.radius > 1e-7 ? sphere.radius : 1.0;
 
     // Keep current camera view angle relative to target
     const currentDir = new THREE.Vector3().subVectors(this.currentCamera.position, this.controls.target);
@@ -879,7 +1043,6 @@ export class Viewer3D {
 
     this.controls.target.copy(center);
 
-    const box = this.boundingBox;
     const corners: THREE.Vector3[] = [
       new THREE.Vector3(box.min.x, box.min.y, box.min.z),
       new THREE.Vector3(box.min.x, box.min.y, box.max.z),
@@ -969,18 +1132,25 @@ export class Viewer3D {
     this.controls.update();
   }
 
-  public setView(view: 'top' | 'front' | 'side' | 'iso') {
+  public resetView() {
     if (!this.currentMeshData) return;
-    const center = this.boundingSphere.center;
-    const radius = this.getEffectiveRadius();
-    const aspect = (this.container.clientWidth || 800) / (this.container.clientHeight || 600);
-    const fovRad = (this.perspectiveCamera.fov * Math.PI) / 180;
-    const halfFovV = fovRad / 2;
-    const halfFovH = Math.atan(Math.tan(halfFovV) * aspect);
-    const minHalfFov = Math.min(halfFovV, halfFovH);
-    const dist = (radius / Math.sin(minHalfFov)) * 1.15;
 
-    this.controls.target.copy(center);
+    if (this.lastFitMode === 'all') {
+      const visibleSurfBox = this.getVisibleSurfacesBoundingBox();
+      if (visibleSurfBox) {
+        this.fitToBox(visibleSurfBox);
+        this.lastFitMode = 'visibleSurfaces';
+        return;
+      }
+    }
+
+    const fullBox = this.getFullBoundingBox();
+    this.fitToBox(fullBox);
+    this.lastFitMode = 'all';
+  }
+
+  public setView(view: 'top' | 'front' | 'side' | 'iso', fit: boolean = false) {
+    if (!this.currentMeshData) return;
 
     const dir = new THREE.Vector3();
     if (view === 'top') {
@@ -993,11 +1163,26 @@ export class Viewer3D {
       dir.set(1, 0.85, 1).normalize();
     }
 
-    this.currentCamera.position.copy(center).addScaledVector(dir, dist);
-    this.currentCamera.lookAt(center);
+    if (fit) {
+      const fullBox = this.getFullBoundingBox();
+      const center = fullBox.getCenter(new THREE.Vector3());
+      const radius = this.getEffectiveRadius();
+      this.controls.target.copy(center);
+      this.currentCamera.position.copy(center).addScaledVector(dir, radius * 2);
+      this.currentCamera.lookAt(center);
+      this.fitToBox(fullBox);
+      this.lastFitMode = 'all';
+      return;
+    }
 
-    // Call resetView to fit the oriented geometry properly in both Ortho and Perspective
-    this.resetView();
+    // Only change view direction, preserving current target and zoom/scale
+    const target = this.controls.target.clone();
+    const currentDist = this.currentCamera.position.distanceTo(target);
+    const safeDist = currentDist > 1e-7 ? currentDist : this.getEffectiveRadius() * 2;
+
+    this.currentCamera.position.copy(target).addScaledVector(dir, safeDist);
+    this.currentCamera.lookAt(target);
+    this.controls.update();
   }
 
   public toggleProjection() {
@@ -1045,7 +1230,7 @@ export class Viewer3D {
     this.controls.update();
   }
 
-  public toggleLayer(layer: 'points' | 'lines' | 'surfaces' | 'wireframe' | 'labels' | 'grid' | 'axes', enabled: boolean) {
+  public toggleLayer(layer: 'points' | 'lines' | 'surfaces' | 'wireframe' | 'cylindrical' | 'labels' | 'grid' | 'axes', enabled: boolean) {
     switch (layer) {
       case 'points':
         this.showPoints = enabled;
@@ -1060,8 +1245,12 @@ export class Viewer3D {
         break;
       case 'surfaces':
         this.showSurfaces = enabled;
-        this.surfacesGroup.visible = enabled;
+        this.applyCylindricalVisibility();
         this.labelManager.setSurfaceLabelsVisible(enabled);
+        this.lastFitMode = null;
+        break;
+      case 'cylindrical':
+        this.setCylindricalMode(enabled ? 'translucent' : 'off');
         break;
       case 'wireframe':
         this.showWireframe = enabled;
@@ -1083,6 +1272,219 @@ export class Viewer3D {
         if (enabled) this.updateAdaptiveGrid();
         break;
     }
+  }
+
+  private applyCylindricalVisibility() {
+    const hasCylMeshes = this.cylindricalGroup.children.length > 0;
+    this.cylindricalGroup.visible = this.showSurfaces && this.cylindricalMode !== 'off';
+    // In opaque mode, hide original 2D planar surfaces (if revolved solids exist) to avoid Z-fighting;
+    // in translucent or off mode, keep original surfaces visible.
+    this.surfacesGroup.visible = this.showSurfaces && !(this.cylindricalMode === 'opaque' && hasCylMeshes);
+  }
+
+  public setCylindricalMode(mode: CylindricalMode) {
+    this.cylindricalMode = mode;
+    const isOpaque = mode === 'opaque';
+    for (const child of this.cylindricalGroup.children) {
+      const mesh = child as THREE.Mesh;
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (mat) {
+        const isBack = Boolean(mesh.userData?.isBack);
+        mat.transparent = !isOpaque;
+        mat.opacity = isOpaque ? 1.0 : (isBack ? 0.16 : 0.28);
+        mat.depthWrite = isOpaque;
+        mat.needsUpdate = true;
+      }
+      mesh.renderOrder = isOpaque ? 0 : (mesh.userData?.isBack ? 1 : 2);
+    }
+    this.applyCylindricalVisibility();
+    this.lastFitMode = null;
+  }
+
+  public getSurfaceRegions(): SurfaceRegionInfo[] {
+    return this.surfaceRegions;
+  }
+
+  public setSurfaceRegionVisible(key: string, visible: boolean) {
+    this.lastFitMode = null;
+    if (visible) {
+      this.hiddenSurfaceKeys.delete(key);
+    } else {
+      this.hiddenSurfaceKeys.add(key);
+    }
+
+    const region = this.surfaceRegions.find(r => r.key === key);
+    if (region) {
+      region.visible = visible;
+      for (const tag of region.tags) {
+        this.labelManager.setSurfaceTagVisible(tag, visible);
+      }
+    }
+
+    for (const child of this.surfacesGroup.children) {
+      if (child.userData?.regionKey === key) {
+        child.visible = visible;
+      }
+    }
+
+    for (const child of this.cylindricalGroup.children) {
+      if (child.userData?.regionKey === key) {
+        child.visible = visible;
+      }
+    }
+
+    for (const child of this.wireframeGroup.children) {
+      if (child.userData?.regionKey === key) {
+        child.visible = visible;
+      }
+    }
+  }
+
+  /**
+   * Builds a 3D solid of revolution around the Y-axis from a 2D surface's boundary edges.
+   * Returns null if the surface has no open boundary edges (e.g. an already-closed 3D shell).
+   */
+  private buildRevolvedSurfaceGeometry(
+    nodes: number[],
+    triIndices: number[],
+    segments: number = 48
+  ): THREE.BufferGeometry | null {
+    // 1. Extract boundary edges (edges appearing in only 1 triangle) and signed XY area
+    const edgeCount = new Map<string, { a: number; b: number; count: number }>();
+    let signedAreaXY = 0;
+
+    for (let i = 0; i < triIndices.length; i += 3) {
+      const i0 = triIndices[i];
+      const i1 = triIndices[i + 1];
+      const i2 = triIndices[i + 2];
+
+      const ax = nodes[i0 * 3], ay = nodes[i0 * 3 + 1];
+      const bx = nodes[i1 * 3], by = nodes[i1 * 3 + 1];
+      const cx = nodes[i2 * 3], cy = nodes[i2 * 3 + 1];
+      signedAreaXY += 0.5 * ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax));
+
+      const triEdges: [number, number][] = [
+        [i0, i1],
+        [i1, i2],
+        [i2, i0]
+      ];
+      for (const [u, v] of triEdges) {
+        const key = u < v ? `${u}_${v}` : `${v}_${u}`;
+        const existing = edgeCount.get(key);
+        if (existing) {
+          existing.count++;
+        } else {
+          edgeCount.set(key, { a: u, b: v, count: 1 });
+        }
+      }
+    }
+
+    const boundaryEdges: [number, number][] = [];
+    for (const entry of edgeCount.values()) {
+      if (entry.count === 1) {
+        // Ensure CCW orientation in XY plane so outward normals point outward after Y-axis revolution
+        boundaryEdges.push(signedAreaXY >= 0 ? [entry.a, entry.b] : [entry.b, entry.a]);
+      }
+    }
+
+    if (boundaryEdges.length === 0) {
+      return null;
+    }
+
+    // 2. Revolve each boundary edge around the Y-axis with exact smooth outward normals
+    const positions: number[] = [];
+    const normals: number[] = [];
+
+    const cosTable = new Float64Array(segments + 1);
+    const sinTable = new Float64Array(segments + 1);
+    for (let s = 0; s <= segments; s++) {
+      const theta = (s / segments) * Math.PI * 2;
+      cosTable[s] = Math.cos(theta);
+      sinTable[s] = Math.sin(theta);
+    }
+
+    for (const [a, b] of boundaryEdges) {
+      const x0 = nodes[a * 3], y0 = nodes[a * 3 + 1], z0 = nodes[a * 3 + 2];
+      const x1 = nodes[b * 3], y1 = nodes[b * 3 + 1], z1 = nodes[b * 3 + 2];
+
+      const r0 = Math.hypot(x0, z0);
+      const r1 = Math.hypot(x1, z1);
+      // Skip degenerate edges lying directly on the Y-axis
+      if (r0 < 1e-12 && r1 < 1e-12) continue;
+
+      // 2D outward normal in the profile plane (for CCW edge a->b in XY, outward is (dy, -dx, 0))
+      const dx = x1 - x0;
+      const dy = y1 - y0;
+      const edgeLen = Math.hypot(dx, dy);
+      if (edgeLen < 1e-12) continue;
+      const nx0 = dy / edgeLen;
+      const ny0 = -dx / edgeLen;
+
+      for (let s = 0; s < segments; s++) {
+        const c0 = cosTable[s], s0 = sinTable[s];
+        const c1 = cosTable[s + 1], s1 = sinTable[s + 1];
+
+        // A = rotY(p0, theta0), B = rotY(p1, theta0), C = rotY(p1, theta1), D = rotY(p0, theta1)
+        const ax = x0 * c0 + z0 * s0, ay = y0, az = -x0 * s0 + z0 * c0;
+        const bx = x1 * c0 + z1 * s0, by = y1, bz = -x1 * s0 + z1 * c0;
+        const cx = x1 * c1 + z1 * s1, cy = y1, cz = -x1 * s1 + z1 * c1;
+        const dxp = x0 * c1 + z0 * s1, dyp = y0, dzp = -x0 * s1 + z0 * c1;
+
+        const n0x = nx0 * c0, n0y = ny0, n0z = -nx0 * s0;
+        const n1x = nx0 * c1, n1y = ny0, n1z = -nx0 * s1;
+
+        // Triangle 1: (A, D, C)
+        positions.push(ax, ay, az, dxp, dyp, dzp, cx, cy, cz);
+        normals.push(n0x, n0y, n0z, n1x, n1y, n1z, n1x, n1y, n1z);
+
+        // Triangle 2: (A, C, B)
+        positions.push(ax, ay, az, cx, cy, cz, bx, by, bz);
+        normals.push(n0x, n0y, n0z, n1x, n1y, n1z, n0x, n0y, n0z);
+      }
+    }
+
+    if (positions.length === 0) {
+      return null;
+    }
+
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    return geom;
+  }
+
+  public setAllSurfacesVisible(visible: boolean) {
+    for (const region of this.surfaceRegions) {
+      this.setSurfaceRegionVisible(region.key, visible);
+    }
+  }
+
+  public setSurfaceRegionColor(key: string, hexColorStr: string) {
+    const frontColor = new THREE.Color(hexColorStr);
+    const hsl = { h: 0, s: 0, l: 0 };
+    frontColor.getHSL(hsl);
+    const backColor = new THREE.Color().setHSL(hsl.h, hsl.s * 0.6, hsl.l * 0.8);
+
+    this.customSurfaceColors.set(key, frontColor.getHex());
+
+    const region = this.surfaceRegions.find(r => r.key === key);
+    if (region) {
+      region.color = '#' + frontColor.getHexString();
+    }
+
+    const updateGroupColors = (group: THREE.Group) => {
+      for (const child of group.children) {
+        if (child.userData?.regionKey === key) {
+          const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat && mat.color) {
+            mat.color.copy(child.userData.isBack ? backColor : frontColor);
+          }
+        }
+      }
+    };
+
+    updateGroupColors(this.surfacesGroup);
+    updateGroupColors(this.cylindricalGroup);
   }
 
   private clearGroup(group: THREE.Group) {

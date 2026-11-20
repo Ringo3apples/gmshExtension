@@ -2,6 +2,19 @@
 
 All notable changes to the **Gmsh (Language Support & 3D Preview)** extension will be documented in this file.
 
+## [0.6.0] - 2026-11-21
+### Added
+- **Per-Surface Visibility Popover & Checkboxes**:
+  - Hovering over the **Surfaces** toolbar button opens a checklist of all surface regions (`Physical Surface` names or `Surface #tag`) with **All** / **None** quick toggles.
+  - Unchecking a surface hides its front/back faces, wireframe mesh, and Physical label, excludes it from raycasting, and persists across live `.geo` edits.
+- **Interactive Per-Surface Color Picker**:
+  - Clicking any surface's color swatch in the **Surfaces** popover opens a native color picker to customize its 3D color in real time (updating both planar and cylindrical front/back surfaces and persisting across edits).
+- **3-State `Cylindrical` (Y-Axis Revolution) Display**:
+  - Added a **Cylindrical** toolbar button cycling through **Off** → **Translucent (`◐`)** (overlaying translucent 3D revolved solids around the Y-axis while keeping the original 2D cross-section visible) → **Opaque (`●`)** (solid 3D revolved view).
+- **2-Stage `Fit` & Direction-Only View Presets**:
+  - **Top / Front / Side / Iso** buttons now change only the camera viewing direction while preserving current zoom and target.
+  - **Fit** button toggles between fitting the **entire model** (1st click) and fitting **only the currently visible surfaces** (2nd click, including cylindrical revolved geometry when enabled).
+
 ## [0.5.0] - 2026-11-17
 ### Added
 - **Per-Region Surface Color Coding**:

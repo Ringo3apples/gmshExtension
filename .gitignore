@@ -2,7 +2,7 @@
 node_modules/
 dist/*.map
 *.vsix
-!gmsh-preview-0.5.0.vsix
+!gmsh-preview-0.6.0.vsix
 .DS_Store
 Thumbs.db
 

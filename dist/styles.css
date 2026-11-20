@@ -245,3 +245,176 @@ body {
   background: rgba(239, 68, 68, 0.35);
   border-color: #f87171;
 }
+
+/* Surfaces Hover Popover Panel */
+#toggle-surfaces {
+  anchor-name: --surfaces-trigger;
+}
+
+.surfaces-popover {
+  min-width: 190px;
+  max-width: 280px;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  color: var(--text-primary);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.surfaces-popover:popover-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@starting-style {
+  .surfaces-popover:popover-open {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .surfaces-popover {
+    transition: opacity 0.14s ease, transform 0.14s ease, display 0.14s ease, overlay 0.14s ease;
+    transition-behavior: allow-discrete;
+  }
+}
+
+@supports (position-area: block-end) {
+  .surfaces-popover {
+    position-anchor: --surfaces-trigger;
+    inset: auto;
+    margin: 6px 0 0 0;
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  }
+}
+
+@supports not (position-area: block-end) {
+  .surfaces-popover {
+    position: fixed;
+    margin: 0;
+  }
+}
+
+.surfaces-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 6px 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.surfaces-popover-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.surfaces-popover-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.surfaces-mini-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.surfaces-mini-btn:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.surfaces-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  color-scheme: dark;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.surface-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+
+.surface-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.surface-item input[type="checkbox"] {
+  accent-color: var(--accent-color);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.surface-color-picker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  color-scheme: dark;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.surface-color-picker:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+}
+
+.surface-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.surface-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.surface-item-label {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  flex: 1;
+}
+
+.surfaces-empty {
+  padding: 6px 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+}

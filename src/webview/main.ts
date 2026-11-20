@@ -1,4 +1,4 @@
-import { Viewer3D, GridInfo } from './viewer3d';
+import { Viewer3D, GridInfo, SurfaceRegionInfo, CylindricalMode } from './viewer3d';
 import { ExtensionMessage, WebviewMessage, MeshData } from '../types';
 
 declare function acquireVsCodeApi(): {
@@ -66,6 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     onGridUpdate: (info) => {
       updateGridDisplay(info);
+    },
+    onSurfacesUpdate: (surfaces) => {
+      renderSurfacesList(surfaces);
     }
   });
 
@@ -77,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Layer toggle buttons
-  const setupToggle = (btnId: string, layer: 'points' | 'lines' | 'surfaces' | 'wireframe' | 'labels' | 'grid' | 'axes', initial: boolean = true) => {
+  const setupToggle = (btnId: string, layer: 'points' | 'lines' | 'surfaces' | 'wireframe' | 'cylindrical' | 'labels' | 'grid' | 'axes', initial: boolean = true) => {
     const btn = document.getElementById(btnId);
     if (!btn) return;
     let state = initial;
@@ -92,8 +95,232 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupToggle('toggle-points', 'points', true);
   setupToggle('toggle-lines', 'lines', true);
-  setupToggle('toggle-surfaces', 'surfaces', true);
   setupToggle('toggle-labels', 'labels', true);
+
+  // Cylindrical 3-state cycle button: Off -> Translucent (半透明) -> Opaque (不透明) -> Off
+  const cylindricalBtn = document.getElementById('toggle-cylindrical');
+  const cylindricalModes: CylindricalMode[] = ['off', 'translucent', 'opaque'];
+  let cylindricalIdx = 0;
+
+  const updateCylindricalBtnUI = (mode: CylindricalMode) => {
+    if (!cylindricalBtn) return;
+    cylindricalBtn.classList.toggle('active', mode !== 'off');
+    if (mode === 'translucent') {
+      cylindricalBtn.textContent = 'Cylindrical ◐';
+      cylindricalBtn.title = 'Cylindrical: Translucent (Click for Opaque)';
+    } else if (mode === 'opaque') {
+      cylindricalBtn.textContent = 'Cylindrical ●';
+      cylindricalBtn.title = 'Cylindrical: Opaque (Click to Hide)';
+    } else {
+      cylindricalBtn.textContent = 'Cylindrical';
+      cylindricalBtn.title = 'Cylindrical: Off (Click for Translucent)';
+    }
+  };
+  updateCylindricalBtnUI('off');
+
+  cylindricalBtn?.addEventListener('click', () => {
+    cylindricalIdx = (cylindricalIdx + 1) % cylindricalModes.length;
+    const nextMode = cylindricalModes[cylindricalIdx];
+    viewer.setCylindricalMode(nextMode);
+    updateCylindricalBtnUI(nextMode);
+  });
+
+  // Surfaces toggle + hover checklist popover
+  const surfacesBtn = document.getElementById('toggle-surfaces');
+  const surfacesPopover = document.getElementById('surfaces-popover') as HTMLElement | null;
+  const surfacesListEl = document.getElementById('surfaces-list');
+  const surfacesSelectAllBtn = document.getElementById('surfaces-select-all');
+  const surfacesSelectNoneBtn = document.getElementById('surfaces-select-none');
+
+  const syncSurfacesBtnState = () => {
+    if (!surfacesBtn) return;
+    surfacesBtn.classList.toggle('active', viewer.showSurfaces);
+  };
+  syncSurfacesBtnState();
+
+  surfacesBtn?.addEventListener('click', () => {
+    viewer.toggleLayer('surfaces', !viewer.showSurfaces);
+    syncSurfacesBtnState();
+  });
+
+  const supportsNativeAnchor = typeof CSS !== 'undefined' && CSS.supports('position-area: block-end');
+  const supportsPopoverApi = Boolean(surfacesPopover && typeof (surfacesPopover as any).showPopover === 'function');
+  let popoverCloseTimer: number | undefined;
+  let popoverVisible = false;
+  let isColorPickerActive = false;
+
+  const positionPopoverFallback = () => {
+    if (!surfacesBtn || !surfacesPopover || supportsNativeAnchor) return;
+    const rect = surfacesBtn.getBoundingClientRect();
+    const popWidth = surfacesPopover.offsetWidth || 210;
+    const popHeight = surfacesPopover.offsetHeight || 160;
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    if (left + popWidth > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - popWidth - 12);
+    }
+    if (top + popHeight > window.innerHeight - 12) {
+      top = Math.max(12, rect.top - popHeight - 6);
+    }
+    surfacesPopover.style.left = `${left}px`;
+    surfacesPopover.style.top = `${top}px`;
+  };
+
+  const openSurfacesPopover = () => {
+    if (!surfacesPopover) return;
+    if (popoverCloseTimer !== undefined) {
+      window.clearTimeout(popoverCloseTimer);
+      popoverCloseTimer = undefined;
+    }
+    if (!popoverVisible) {
+      popoverVisible = true;
+      if (supportsPopoverApi) {
+        try {
+          (surfacesPopover as any).showPopover();
+        } catch {
+          surfacesPopover.style.display = 'block';
+        }
+      } else {
+        surfacesPopover.style.display = 'block';
+      }
+    }
+    positionPopoverFallback();
+  };
+
+  const scheduleCloseSurfacesPopover = () => {
+    if (!surfacesPopover || isColorPickerActive) return;
+    if (popoverCloseTimer !== undefined) {
+      window.clearTimeout(popoverCloseTimer);
+    }
+    popoverCloseTimer = window.setTimeout(() => {
+      popoverCloseTimer = undefined;
+      if (!popoverVisible || isColorPickerActive) return;
+      popoverVisible = false;
+      if (supportsPopoverApi) {
+        try {
+          (surfacesPopover as any).hidePopover();
+        } catch {
+          surfacesPopover.style.display = 'none';
+        }
+      } else {
+        surfacesPopover.style.display = 'none';
+      }
+    }, 180);
+  };
+
+  surfacesBtn?.addEventListener('mouseenter', openSurfacesPopover);
+  surfacesBtn?.addEventListener('mouseleave', scheduleCloseSurfacesPopover);
+  surfacesBtn?.addEventListener('focus', openSurfacesPopover);
+  surfacesBtn?.addEventListener('blur', scheduleCloseSurfacesPopover);
+
+  surfacesPopover?.addEventListener('mouseenter', openSurfacesPopover);
+  surfacesPopover?.addEventListener('mouseleave', scheduleCloseSurfacesPopover);
+  surfacesPopover?.addEventListener('focusin', openSurfacesPopover);
+  surfacesPopover?.addEventListener('focusout', (e) => {
+    const next = e.relatedTarget as Node | null;
+    if (!next || (!surfacesPopover.contains(next) && next !== surfacesBtn)) {
+      scheduleCloseSurfacesPopover();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && popoverVisible && surfacesPopover) {
+      popoverVisible = false;
+      if (supportsPopoverApi) {
+        try {
+          (surfacesPopover as any).hidePopover();
+        } catch {
+          surfacesPopover.style.display = 'none';
+        }
+      } else {
+        surfacesPopover.style.display = 'none';
+      }
+    }
+  });
+
+  function renderSurfacesList(surfaces: SurfaceRegionInfo[]) {
+    if (!surfacesListEl) return;
+    surfacesListEl.innerHTML = '';
+
+    if (surfaces.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'surfaces-empty';
+      empty.textContent = 'No surfaces';
+      surfacesListEl.appendChild(empty);
+      return;
+    }
+
+    surfaces.forEach((region, idx) => {
+      const row = document.createElement('div');
+      row.className = 'surface-item';
+
+      const checkboxId = `surface-chk-${idx}`;
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = checkboxId;
+      checkbox.checked = region.visible;
+      checkbox.addEventListener('change', () => {
+        viewer.setSurfaceRegionVisible(region.key, checkbox.checked);
+        if (checkbox.checked && !viewer.showSurfaces) {
+          viewer.toggleLayer('surfaces', true);
+          syncSurfacesBtnState();
+        }
+      });
+
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.className = 'surface-color-picker';
+      colorInput.value = region.color;
+      colorInput.title = `Change color for ${region.label}`;
+      colorInput.setAttribute('aria-label', `Change color for ${region.label}`);
+      colorInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isColorPickerActive = true;
+      });
+      colorInput.addEventListener('focus', () => {
+        isColorPickerActive = true;
+      });
+      colorInput.addEventListener('input', () => {
+        viewer.setSurfaceRegionColor(region.key, colorInput.value);
+      });
+      colorInput.addEventListener('change', () => {
+        viewer.setSurfaceRegionColor(region.key, colorInput.value);
+        isColorPickerActive = false;
+      });
+      colorInput.addEventListener('blur', () => {
+        isColorPickerActive = false;
+      });
+
+      const labelText = document.createElement('label');
+      labelText.className = 'surface-item-label';
+      labelText.htmlFor = checkboxId;
+      labelText.textContent = region.label;
+      labelText.title = region.label;
+
+      row.appendChild(checkbox);
+      row.appendChild(colorInput);
+      row.appendChild(labelText);
+      surfacesListEl.appendChild(row);
+    });
+
+    if (popoverVisible) {
+      positionPopoverFallback();
+    }
+  }
+
+  surfacesSelectAllBtn?.addEventListener('click', () => {
+    viewer.setAllSurfacesVisible(true);
+    if (!viewer.showSurfaces) {
+      viewer.toggleLayer('surfaces', true);
+      syncSurfacesBtnState();
+    }
+    renderSurfacesList(viewer.getSurfaceRegions());
+  });
+
+  surfacesSelectNoneBtn?.addEventListener('click', () => {
+    viewer.setAllSurfacesVisible(false);
+    renderSurfacesList(viewer.getSurfaceRegions());
+  });
 
   // Coupled Mesh & Gmsh buttons:
   // - Mesh ON  -> forces Gmsh ON

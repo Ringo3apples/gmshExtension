@@ -412,8 +412,21 @@ export class GmshPreviewPanel {
     <div class="toolbar-group">
       <button id="toggle-points" class="toggle-btn" title="Points (P)">Points</button>
       <button id="toggle-lines" class="toggle-btn" title="Lines (L)">Lines</button>
-      <button id="toggle-surfaces" class="toggle-btn" title="Surfaces (S)">Surfaces</button>
+      <button id="toggle-surfaces" class="toggle-btn" title="Surfaces (S) - Hover to toggle individual surfaces">Surfaces</button>
+      <div id="surfaces-popover" popover="manual" class="surfaces-popover" aria-label="Surface Visibility">
+        <div class="surfaces-popover-header">
+          <span class="surfaces-popover-title">Surfaces</span>
+          <div class="surfaces-popover-actions">
+            <button id="surfaces-select-all" type="button" class="surfaces-mini-btn">All</button>
+            <button id="surfaces-select-none" type="button" class="surfaces-mini-btn">None</button>
+          </div>
+        </div>
+        <div id="surfaces-list" class="surfaces-list">
+          <div class="surfaces-empty">No surfaces</div>
+        </div>
+      </div>
       <button id="toggle-wireframe" class="toggle-btn" title="Mesh Wireframe">Mesh</button>
+      <button id="toggle-cylindrical" class="toggle-btn" title="Revolve Surfaces around Y-axis (Cylindrical 3D)">Cylindrical</button>
       <button id="toggle-labels" class="toggle-btn" title="Entity & Physical Labels">Labels</button>
       <button id="toggle-gmsh" class="toggle-btn" title="Run Gmsh & Show Physical Entities">Gmsh</button>
     </div>

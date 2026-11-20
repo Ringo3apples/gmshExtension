@@ -65,6 +65,14 @@ export class LabelManager {
     this.surfaceGroup.visible = visible;
   }
 
+  public setSurfaceTagVisible(tag: number, visible: boolean) {
+    for (const sprite of this.surfaceSprites) {
+      if (sprite.userData?.tag === tag) {
+        sprite.visible = visible;
+      }
+    }
+  }
+
   public clear() {
     this.clearGroup(this.pointGroup);
     this.clearGroup(this.lineGroup);
